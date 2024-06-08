@@ -3,8 +3,10 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import pytorch_lightning as pl
 import torch
+from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 from transformers import (
     AdamW,
@@ -12,8 +14,6 @@ from transformers import (
     BertTokenizer,
     get_linear_schedule_with_warmup,
 )
-
-from datasets import load_dataset
 
 
 # Function to set seeds for reproducibility
@@ -29,10 +29,7 @@ def set_seed(seed=42):
     pl.seed_everything(seed)
 
 
-# Set seeds for reproducibility
-set_seed(42)
-
-
+# Dataset and DataModule classes
 class IMDBDataset(Dataset):
     def __init__(self, texts, labels, tokenizer, max_length=512):
         self.texts = texts
@@ -101,13 +98,15 @@ class IMDBDataModule(pl.LightningDataModule):
         )
 
 
+# Model and Callback classes
 class IMDBClassifier(pl.LightningModule):
-    def __init__(self, n_classes=2):
+    def __init__(self, n_classes=2, lr=2e-5):
         super(IMDBClassifier, self).__init__()
         self.model = BertForSequenceClassification.from_pretrained(
             "bert-base-uncased", num_labels=n_classes
         )
         self.criterion = torch.nn.CrossEntropyLoss()
+        self.lr = lr
 
     def forward(self, input_ids, attention_mask, labels=None):
         output = self.model(
@@ -140,17 +139,18 @@ class IMDBClassifier(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = AdamW(self.parameters(), lr=2e-5, correct_bias=False)
+        optimizer = AdamW(self.parameters(), lr=self.lr, correct_bias=False)
+        num_training_steps = self.trainer.estimated_stepping_batches
         scheduler = get_linear_schedule_with_warmup(
             optimizer,
             num_warmup_steps=0,
-            num_training_steps=len(train_loader) * trainer.max_epochs,
+            num_training_steps=num_training_steps,
         )
         return [optimizer], [scheduler]
 
 
 class ErrorRatePlotterCallback(pl.Callback):
-    def __init__(self, smoothing_factor=0.1, output_dir="./imdb/output"):
+    def __init__(self, smoothing_factor=0.1, output_dir="./im/output"):
         super().__init__()
         self.train_error_rates = []
         self.val_error_rates = []
@@ -170,7 +170,6 @@ class ErrorRatePlotterCallback(pl.Callback):
             self.val_error_rates.append(val_error_rate.item())
 
     def on_train_end(self, trainer, pl_module):
-        # Apply smoothing
         smoothed_train_error_rates = self.smooth(self.train_error_rates)
         smoothed_val_error_rates = self.smooth(self.val_error_rates)
 
@@ -201,31 +200,137 @@ class ErrorRatePlotterCallback(pl.Callback):
         return smoothed_values
 
 
+# Data preparation function
 def load_and_prepare_data():
-    # Load the IMDB dataset using the datasets library
     dataset = load_dataset("imdb")
     train_texts, train_labels = dataset["train"]["text"], dataset["train"]["label"]
     val_texts, val_labels = dataset["test"]["text"], dataset["test"]["label"]
+
+    train_texts = train_texts[:1000]
+    train_labels = train_labels[:1000]
+    val_texts = val_texts[:1000]
+    val_labels = val_labels[:1000]
+
     return train_texts, train_labels, val_texts, val_labels
 
 
-train_texts, train_labels, val_texts, val_labels = load_and_prepare_data()
+# Hyperparameter evaluation functions
+def evaluate_hyperparameters(
+    hyperparameter_values,
+    hyperparameter_name,
+    train_texts,
+    train_labels,
+    val_texts,
+    val_labels,
+    tokenizer,
+    output_dir="./im/output",
+):
+    results = []
+    for value in hyperparameter_values:
+        print(f"Evaluating {hyperparameter_name} = {value}")
 
-# Initialize tokenizer
-tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+        if hyperparameter_name == "batch_size":
+            data_module = IMDBDataModule(
+                train_texts,
+                train_labels,
+                val_texts,
+                val_labels,
+                tokenizer,
+                batch_size=value,
+            )
+            model = IMDBClassifier()
+        elif hyperparameter_name == "learning_rate":
+            data_module = IMDBDataModule(
+                train_texts,
+                train_labels,
+                val_texts,
+                val_labels,
+                tokenizer,
+                batch_size=8,
+            )
+            model = IMDBClassifier(lr=value)
+        else:
+            raise ValueError("Unsupported hyperparameter for evaluation")
 
-# Create DataModule
-data_module = IMDBDataModule(
-    train_texts, train_labels, val_texts, val_labels, tokenizer, batch_size=8
-)
+        trainer = pl.Trainer(
+            max_epochs=10,
+            callbacks=[ErrorRatePlotterCallback(output_dir=output_dir)],
+            accelerator="gpu",
+        )
+        trainer.fit(model, data_module)
 
-# Create the model
-model = IMDBClassifier()
+        train_error_rate = trainer.callback_metrics.get("train_error_rate", None)
+        val_error_rate = trainer.callback_metrics.get("val_error_rate", None)
+        if train_error_rate is not None and val_error_rate is not None:
+            results.append(
+                {
+                    hyperparameter_name: value,
+                    "train_error_rate": train_error_rate.item(),
+                    "val_error_rate": val_error_rate.item(),
+                }
+            )
 
-# Train the model
-trainer = pl.Trainer(
-    max_epochs=3,
-    callbacks=[ErrorRatePlotterCallback()],
-    gpus=1 if torch.cuda.is_available() else 0,
-)
-trainer.fit(model, data_module)
+    return results
+
+
+def plot_hyperparameter_tuning_results(
+    results, hyperparameter_name, output_dir="./im/output"
+):
+    df = pd.DataFrame(results)
+    plt.figure(figsize=(10, 5))
+    plt.plot(
+        df[hyperparameter_name], df["train_error_rate"], label="Training Error Rate"
+    )
+    plt.plot(
+        df[hyperparameter_name], df["val_error_rate"], label="Validation Error Rate"
+    )
+    plt.title(f"Effect of {hyperparameter_name} on Error Rate")
+    plt.xlabel(hyperparameter_name)
+    plt.ylabel("Error Rate")
+    plt.legend()
+    plt.grid(True)
+
+    output_path = os.path.join(output_dir, f"{hyperparameter_name}_tuning_results.png")
+    plt.savefig(output_path)
+    plt.close()
+
+
+# Main execution
+if __name__ == "__main__":
+    set_seed(42)
+
+    train_texts, train_labels, val_texts, val_labels = load_and_prepare_data()
+    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+
+    batch_sizes = [4, 8, 16, 32]
+    learning_rates = [1e-5, 2e-5, 3e-5, 5e-5]
+
+    output_dir = "./im/output"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    batch_size_results = evaluate_hyperparameters(
+        batch_sizes,
+        "batch_size",
+        train_texts,
+        train_labels,
+        val_texts,
+        val_labels,
+        tokenizer,
+        output_dir,
+    )
+    plot_hyperparameter_tuning_results(batch_size_results, "batch_size", output_dir)
+
+    learning_rate_results = evaluate_hyperparameters(
+        learning_rates,
+        "learning_rate",
+        train_texts,
+        train_labels,
+        val_texts,
+        val_labels,
+        tokenizer,
+        output_dir,
+    )
+    plot_hyperparameter_tuning_results(
+        learning_rate_results, "learning_rate", output_dir
+    )

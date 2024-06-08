@@ -97,7 +97,7 @@ class EnhancedNN(pl.LightningModule):
 
 
 class ErrorRatePlotterCallback(pl.Callback):
-    def __init__(self, smoothing_factor=0.1, output_dir="./output"):
+    def __init__(self, smoothing_factor=0.1, output_dir="./digit/output"):
         super().__init__()
         self.train_error_rates = []
         self.val_error_rates = []

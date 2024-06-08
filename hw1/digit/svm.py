@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn import datasets
 from sklearn.model_selection import learning_curve, train_test_split, validation_curve
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
 
 
 # Function to set seeds for reproducibility
@@ -19,8 +19,8 @@ def set_seed(seed=42):
 set_seed(42)
 
 
-class KNNModelEvaluator:
-    def __init__(self, model, name, output_dir="./output"):
+class SVMModelEvaluator:
+    def __init__(self, model, name, output_dir="./digit/output"):
         self.model = model
         self.name = name
         self.output_dir = output_dir
@@ -38,8 +38,8 @@ class KNNModelEvaluator:
         train_errors = 1 - np.mean(train_scores, axis=1)
         test_errors = 1 - np.mean(test_scores, axis=1)
 
-        smoothed_train_errors = self.smooth(train_errors, smoothing_factor=0)
-        smoothed_test_errors = self.smooth(test_errors, smoothing_factor=0)
+        smoothed_train_errors = self.smooth(train_errors)
+        smoothed_test_errors = self.smooth(test_errors)
 
         ax.set_title(f"Learning Curve: {self.name}", fontsize=16)
         ax.set_xlabel("Training examples", fontsize=14)
@@ -62,7 +62,7 @@ class KNNModelEvaluator:
         ax.legend(loc="best", fontsize=12)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
-        output_path = os.path.join(self.output_dir, "knn_learning_curve.png")
+        output_path = os.path.join(self.output_dir, "svm_learning_curve.png")
         plt.savefig(output_path)
         plt.close()
 
@@ -105,7 +105,7 @@ class KNNModelEvaluator:
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         ax.grid(True)
-        output_path = os.path.join(self.output_dir, "knn_model_complexity.png")
+        output_path = os.path.join(self.output_dir, "svm_model_complexity.png")
         plt.savefig(output_path)
         plt.close()
 
@@ -136,11 +136,11 @@ def load_and_prepare_data():
 
 def main():
     X_train, X_test, y_train, y_test, X, y = load_and_prepare_data()
-    knn_model = KNeighborsClassifier(n_neighbors=50, weights="distance")
-    model_evaluator = KNNModelEvaluator(knn_model, "k-Nearest Neighbors")
+    svm_model = SVC(kernel="rbf", C=100, gamma=0.001)
+    model_evaluator = SVMModelEvaluator(svm_model, "SVM")
     model_evaluator.train(X_train, y_train)
     model_evaluator.plot_learning_curve(X, y)
-    model_evaluator.plot_model_complexity(X, y, "n_neighbors", range(1, 101, 10))
+    model_evaluator.plot_model_complexity(X, y, "C", np.logspace(-3, 3, 7))
 
 
 if __name__ == "__main__":

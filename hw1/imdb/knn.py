@@ -3,10 +3,11 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
-from datasets import load_dataset
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import learning_curve, train_test_split, validation_curve
 from sklearn.neighbors import KNeighborsClassifier
+
+from datasets import load_dataset
 
 
 # Function to set seeds for reproducibility
@@ -48,7 +49,7 @@ class KNNModelEvaluator:
         self.model.fit(X_train, y_train)
 
     def plot_learning_curve(self, X, y):
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
         train_sizes, train_scores, test_scores = learning_curve(
             self.model, X, y, cv=10, n_jobs=1, train_sizes=np.linspace(0.1, 1.0, 10)
         )
@@ -84,7 +85,7 @@ class KNNModelEvaluator:
         plt.close()
 
     def plot_model_complexity(self, X, y, param_name, param_range):
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
         train_scores, test_scores = validation_curve(
             self.model,
             X,
@@ -142,7 +143,7 @@ class KNNModelEvaluator:
 def evaluate_hyperparameters(
     model, param_name, param_range, X_train, y_train, output_dir="./im/output"
 ):
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
     train_scores, test_scores = validation_curve(
         model,
         X_train,

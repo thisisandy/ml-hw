@@ -3,10 +3,11 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
-from datasets import load_dataset
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import learning_curve, train_test_split, validation_curve
 from sklearn.svm import SVC
+
+from datasets import load_dataset
 
 
 # Function to set seeds for reproducibility
@@ -58,7 +59,7 @@ class SVMModelEvaluator:
         smoothed_test_errors = self.smooth(test_errors)
 
         if ax is None:
-            fig, ax = plt.subplots(figsize=(10, 6))
+            fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
         ax.plot(
             train_sizes,
             smoothed_train_errors,
@@ -94,7 +95,7 @@ class SVMModelEvaluator:
         smoothed_test_errors = self.smooth(test_errors)
 
         if ax is None:
-            fig, ax = plt.subplots(figsize=(10, 6))
+            fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
         ax.plot(
             param_range,
             smoothed_train_errors,
@@ -126,7 +127,7 @@ class SVMModelEvaluator:
 
 # Function to plot comparison of kernels
 def plot_kernel_comparison(X_train, y_train, param_range, output_dir="./im/output"):
-    fig, axes = plt.subplots(2, 1, figsize=(10, 12))
+    fig, axes = plt.subplots(2, 1, figsize=(10, 12), dpi=300)
 
     linear_svm = SVC(kernel="linear", C=1.0)
     rbf_svm = SVC(kernel="rbf", C=1.0, gamma="scale")

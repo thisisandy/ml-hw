@@ -3,6 +3,7 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
@@ -30,15 +31,33 @@ def set_seed(seed=42):
 set_seed(42)
 
 
+# Data preparation function
+def load_and_prepare_data():
+    digits = datasets.load_digits()
+    X = digits.images.reshape((len(digits.images), -1))
+    y = digits.target
+    X_train, X_val, y_train, y_val = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+    X_train, y_train = torch.tensor(X_train, dtype=torch.float32), torch.tensor(
+        y_train, dtype=torch.long
+    )
+    X_val, y_val = torch.tensor(X_val, dtype=torch.float32), torch.tensor(
+        y_val, dtype=torch.long
+    )
+    return X_train, X_val, y_train, y_val
+
+
 class EnhancedNN(pl.LightningModule):
-    def __init__(self):
+    def __init__(self, lr=0.01, dropout=0.5):
         super(EnhancedNN, self).__init__()
         self.fc1 = nn.Linear(64, 128)
         self.bn1 = nn.BatchNorm1d(128)
         self.fc2 = nn.Linear(128, 64)
         self.fc3 = nn.Linear(64, 10)
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(dropout)
+        self.lr = lr
 
     def forward(self, x):
         x = self.relu(self.bn1(self.fc1(x)))
@@ -66,36 +85,28 @@ class EnhancedNN(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return optim.SGD(self.parameters(), lr=0.01, momentum=0.9)
+        return optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
+
+
+# Custom data module
+class DigitsDataModule(pl.LightningDataModule):
+    def __init__(self, batch_size=64):
+        super().__init__()
+        self.batch_size = batch_size
+
+    def setup(self, stage=None):
+        self.X_train, self.X_val, self.y_train, self.y_val = load_and_prepare_data()
 
     def train_dataloader(self):
-        # Load and preprocess data
-        digits = datasets.load_digits()
-        X = digits.images.reshape((len(digits.images), -1))
-        y = digits.target
-        X_train, X_val, y_train, y_val = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
-        X_train, y_train = torch.tensor(X_train, dtype=torch.float32), torch.tensor(
-            y_train, dtype=torch.long
-        )
-        train_dataset = TensorDataset(X_train, y_train)
-        return DataLoader(train_dataset, batch_size=64, shuffle=True)
+        train_dataset = TensorDataset(self.X_train, self.y_train)
+        return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
 
     def val_dataloader(self):
-        digits = datasets.load_digits()
-        X = digits.images.reshape((len(digits.images), -1))
-        y = digits.target
-        X_train, X_val, y_train, y_val = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
-        X_val, y_val = torch.tensor(X_val, dtype=torch.float32), torch.tensor(
-            y_val, dtype=torch.long
-        )
-        val_dataset = TensorDataset(X_val, y_val)
-        return DataLoader(val_dataset, batch_size=64, shuffle=False)
+        val_dataset = TensorDataset(self.X_val, self.y_val)
+        return DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False)
 
 
+# Callback to plot error rates
 class ErrorRatePlotterCallback(pl.Callback):
     def __init__(self, smoothing_factor=0.1, output_dir="./digit/output"):
         super().__init__()
@@ -117,11 +128,10 @@ class ErrorRatePlotterCallback(pl.Callback):
             self.val_error_rates.append(val_error_rate.item())
 
     def on_train_end(self, trainer, pl_module):
-        # Apply smoothing
         smoothed_train_error_rates = self.smooth(self.train_error_rates)
         smoothed_val_error_rates = self.smooth(self.val_error_rates)
 
-        plt.figure(figsize=(10, 5))
+        plt.figure(figsize=(10, 5), dpi=300)
         plt.plot(smoothed_train_error_rates, label="Training Error Rate")
         plt.plot(smoothed_val_error_rates, label="Validation Error Rate")
         plt.title("Training and Validation Error Rate Over Epochs")
@@ -148,9 +158,79 @@ class ErrorRatePlotterCallback(pl.Callback):
         return smoothed_values
 
 
-# Create the model
-model = EnhancedNN()
+# Function to evaluate hyperparameters and plot complexity curves
+def evaluate_hyperparameters(
+    hyperparameter_values, hyperparameter_name, output_dir="./digit/output"
+):
+    results = []
 
-# Train the model
-trainer = Trainer(max_epochs=100, callbacks=[ErrorRatePlotterCallback()])
-trainer.fit(model)
+    for value in hyperparameter_values:
+        if hyperparameter_name == "lr":
+            model = EnhancedNN(lr=value)
+        elif hyperparameter_name == "dropout":
+            model = EnhancedNN(dropout=value)
+        else:
+            model = EnhancedNN()
+
+        if hyperparameter_name == "batch_size":
+            data_module = DigitsDataModule(batch_size=value)
+        else:
+            data_module = DigitsDataModule()
+
+        trainer = Trainer(
+            max_epochs=100, callbacks=[ErrorRatePlotterCallback()], logger=False
+        )
+        trainer.fit(model, data_module)
+
+        train_error_rate = trainer.callback_metrics.get("train_error_rate", None)
+        val_error_rate = trainer.callback_metrics.get("val_error_rate", None)
+        if train_error_rate is not None and val_error_rate is not None:
+            results.append(
+                {
+                    hyperparameter_name: value,
+                    "train_error_rate": train_error_rate.item(),
+                    "val_error_rate": val_error_rate.item(),
+                }
+            )
+
+    plot_hyperparameter_tuning_results(results, hyperparameter_name, output_dir)
+
+
+# Function to plot hyperparameter tuning results
+def plot_hyperparameter_tuning_results(
+    results, hyperparameter_name, output_dir="./digit/output"
+):
+    df = pd.DataFrame(results)
+    plt.figure(figsize=(10, 5), dpi=300)
+    plt.plot(
+        df[hyperparameter_name], df["train_error_rate"], label="Training Error Rate"
+    )
+    plt.plot(
+        df[hyperparameter_name], df["val_error_rate"], label="Validation Error Rate"
+    )
+    plt.title(f"Effect of {hyperparameter_name} on Error Rate")
+    plt.xlabel(hyperparameter_name)
+    plt.ylabel("Error Rate")
+    plt.legend()
+    plt.grid(True)
+    output_path = os.path.join(output_dir, f"{hyperparameter_name}_tuning_results.png")
+    plt.savefig(output_path)
+    plt.close()
+
+
+# Main execution
+def main():
+    DigitsDataModule()
+
+    lr_values = [0.001, 0.01, 0.1, 0.5, 1.0]
+    evaluate_hyperparameters(lr_values, "lr")
+
+    batch_sizes = [16, 32, 64, 128]
+    evaluate_hyperparameters(batch_sizes, "batch_size")
+
+    dropout_values = [0.2, 0.4, 0.5, 0.6, 0.8]
+    evaluate_hyperparameters(dropout_values, "dropout")
+
+
+if __name__ == "__main__":
+    main()

@@ -6,10 +6,15 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from sklearn.feature_extraction.text import TfidfVectorizer
 from torch.utils.data import DataLoader, Dataset
+from transformers import (
+    AdamW,
+    BertForSequenceClassification,
+    BertTokenizer,
+    get_linear_schedule_with_warmup,
+)
+
+from datasets import load_dataset
 
 
 # Function to set seeds for reproducibility
@@ -25,40 +30,63 @@ def set_seed(seed=42):
     pl.seed_everything(seed)
 
 
-# Set seeds for reproducibility
-set_seed(42)
-
-
 # Dataset and DataModule classes
 class IMDBDataset(Dataset):
-    def __init__(self, texts, labels):
+    def __init__(self, texts, labels, tokenizer, max_length=512):
         self.texts = texts
         self.labels = labels
+        self.tokenizer = tokenizer
+        self.max_length = max_length
 
     def __len__(self):
         return len(self.texts)
 
     def __getitem__(self, idx):
-        text = self.texts[idx].toarray()[0]  # convert sparse matrix to array
+        text = self.texts[idx]
         label = self.labels[idx]
+        encoding = self.tokenizer.encode_plus(
+            text,
+            add_special_tokens=True,
+            max_length=self.max_length,
+            padding="max_length",
+            return_attention_mask=True,
+            truncation=True,
+            return_tensors="pt",
+        )
         return {
-            "text": torch.tensor(text, dtype=torch.float32),
-            "label": torch.tensor(label, dtype=torch.long),
+            "input_ids": encoding["input_ids"].flatten(),
+            "attention_mask": encoding["attention_mask"].flatten(),
+            "labels": torch.tensor(label, dtype=torch.long),
         }
 
 
 class IMDBDataModule(pl.LightningDataModule):
-    def __init__(self, train_texts, train_labels, val_texts, val_labels, batch_size=8):
+    def __init__(
+        self,
+        train_texts,
+        train_labels,
+        val_texts,
+        val_labels,
+        tokenizer,
+        batch_size=8,
+        max_length=512,
+    ):
         super().__init__()
         self.train_texts = train_texts
         self.train_labels = train_labels
         self.val_texts = val_texts
         self.val_labels = val_labels
+        self.tokenizer = tokenizer
         self.batch_size = batch_size
+        self.max_length = max_length
 
     def setup(self, stage=None):
-        self.train_dataset = IMDBDataset(self.train_texts, self.train_labels)
-        self.val_dataset = IMDBDataset(self.val_texts, self.val_labels)
+        self.train_dataset = IMDBDataset(
+            self.train_texts, self.train_labels, self.tokenizer, self.max_length
+        )
+        self.val_dataset = IMDBDataset(
+            self.val_texts, self.val_labels, self.tokenizer, self.max_length
+        )
 
     def train_dataloader(self):
         return DataLoader(
@@ -73,48 +101,57 @@ class IMDBDataModule(pl.LightningDataModule):
 
 # Model and Callback classes
 class IMDBClassifier(pl.LightningModule):
-    def __init__(self, input_dim, n_classes=2, lr=0.001, dropout=0.5):
+    def __init__(self, n_classes=2, lr=2e-5):
         super(IMDBClassifier, self).__init__()
-        self.model = nn.Sequential(
-            nn.Linear(input_dim, 128),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(64, n_classes),
+        self.model = BertForSequenceClassification.from_pretrained(
+            "bert-base-uncased", num_labels=n_classes
         )
+        self.criterion = torch.nn.CrossEntropyLoss()
         self.lr = lr
 
-    def forward(self, x):
-        return self.model(x)
+    def forward(self, input_ids, attention_mask, labels=None):
+        output = self.model(
+            input_ids=input_ids, attention_mask=attention_mask, labels=labels
+        )
+        return output
 
     def training_step(self, batch, batch_idx):
-        texts = batch["text"]
-        labels = batch["label"]
-        outputs = self(texts)
-        loss = nn.CrossEntropyLoss()(outputs, labels)
-        preds = torch.argmax(outputs, dim=1)
+        input_ids = batch["input_ids"]
+        attention_mask = batch["attention_mask"]
+        labels = batch["labels"]
+        outputs = self(input_ids, attention_mask, labels)
+        loss = outputs.loss
+        logits = outputs.logits
+        preds = torch.argmax(logits, dim=1)
         error_rate = (preds != labels).float().mean()
         self.log("train_error_rate", error_rate, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        texts = batch["text"]
-        labels = batch["label"]
-        outputs = self(texts)
-        loss = nn.CrossEntropyLoss()(outputs, labels)
-        preds = torch.argmax(outputs, dim=1)
+        input_ids = batch["input_ids"]
+        attention_mask = batch["attention_mask"]
+        labels = batch["labels"]
+        outputs = self(input_ids, attention_mask, labels)
+        loss = outputs.loss
+        logits = outputs.logits
+        preds = torch.argmax(logits, dim=1)
         error_rate = (preds != labels).float().mean()
         self.log("val_error_rate", error_rate, on_epoch=True, prog_bar=True)
         return loss
 
     def configure_optimizers(self):
-        return optim.Adam(self.parameters(), lr=self.lr)
+        optimizer = AdamW(self.parameters(), lr=self.lr, correct_bias=False)
+        num_training_steps = self.trainer.estimated_stepping_batches
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=0,
+            num_training_steps=num_training_steps,
+        )
+        return [optimizer], [scheduler]
 
 
 class ErrorRatePlotterCallback(pl.Callback):
-    def __init__(self, smoothing_factor=0.1, output_dir="./imdb_nn/output"):
+    def __init__(self, smoothing_factor=0.1, output_dir="./im/output"):
         super().__init__()
         self.train_error_rates = []
         self.val_error_rates = []
@@ -147,7 +184,7 @@ class ErrorRatePlotterCallback(pl.Callback):
         plt.grid(True)
 
         output_path = os.path.join(
-            self.output_dir, "nn_training_validation_error_rate.png"
+            self.output_dir, "imdb_transformer_training_validation_error_rate.png"
         )
         plt.savefig(output_path)
         plt.close()
@@ -170,14 +207,12 @@ def load_and_prepare_data():
     train_texts, train_labels = dataset["train"]["text"], dataset["train"]["label"]
     val_texts, val_labels = dataset["test"]["text"], dataset["test"]["label"]
 
-    train_texts, train_labels = train_texts[:1000], train_labels[:1000]
-    val_texts, val_labels = val_texts[:1000], val_labels[:1000]
+    train_texts = train_texts[:1000]
+    train_labels = train_labels[:1000]
+    val_texts = val_texts[:1000]
+    val_labels = val_labels[:1000]
 
-    vectorizer = TfidfVectorizer(max_features=5000)
-    train_texts = vectorizer.fit_transform(train_texts)
-    val_texts = vectorizer.transform(val_texts)
-
-    return train_texts, train_labels, val_texts, val_labels, train_texts.shape[1]
+    return train_texts, train_labels, val_texts, val_labels
 
 
 # Hyperparameter evaluation functions
@@ -188,8 +223,8 @@ def evaluate_hyperparameters(
     train_labels,
     val_texts,
     val_labels,
-    input_dim,
-    output_dir="./imdb_nn/output",
+    tokenizer,
+    output_dir="./im/output",
 ):
     results = []
     for value in hyperparameter_values:
@@ -197,19 +232,24 @@ def evaluate_hyperparameters(
 
         if hyperparameter_name == "batch_size":
             data_module = IMDBDataModule(
-                train_texts, train_labels, val_texts, val_labels, batch_size=value
+                train_texts,
+                train_labels,
+                val_texts,
+                val_labels,
+                tokenizer,
+                batch_size=value,
             )
-            model = IMDBClassifier(input_dim=input_dim)
+            model = IMDBClassifier()
         elif hyperparameter_name == "learning_rate":
             data_module = IMDBDataModule(
-                train_texts, train_labels, val_texts, val_labels, batch_size=8
+                train_texts,
+                train_labels,
+                val_texts,
+                val_labels,
+                tokenizer,
+                batch_size=8,
             )
-            model = IMDBClassifier(input_dim=input_dim, lr=value)
-        elif hyperparameter_name == "dropout":
-            data_module = IMDBDataModule(
-                train_texts, train_labels, val_texts, val_labels, batch_size=8
-            )
-            model = IMDBClassifier(input_dim=input_dim, dropout=value)
+            model = IMDBClassifier(lr=value)
         else:
             raise ValueError("Unsupported hyperparameter for evaluation")
 
@@ -235,7 +275,7 @@ def evaluate_hyperparameters(
 
 
 def plot_hyperparameter_tuning_results(
-    results, hyperparameter_name, output_dir="./imdb_nn/output"
+    results, hyperparameter_name, output_dir="./im/output"
 ):
     df = pd.DataFrame(results)
     plt.figure(figsize=(10, 5), dpi=300)
@@ -252,7 +292,7 @@ def plot_hyperparameter_tuning_results(
     plt.grid(True)
 
     output_path = os.path.join(
-        output_dir, f"nn_{hyperparameter_name}_tuning_results.png"
+        output_dir, f"transformer_{hyperparameter_name}_tuning_results.png"
     )
     plt.savefig(output_path)
     plt.close()
@@ -262,15 +302,13 @@ def plot_hyperparameter_tuning_results(
 if __name__ == "__main__":
     set_seed(42)
 
-    train_texts, train_labels, val_texts, val_labels, input_dim = (
-        load_and_prepare_data()
-    )
+    train_texts, train_labels, val_texts, val_labels = load_and_prepare_data()
+    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
     batch_sizes = [4, 8, 16, 32]
-    learning_rates = [0.001, 0.01, 0.1, 0.5]
-    dropout_rates = [0.2, 0.4, 0.5, 0.6, 0.8]
+    learning_rates = [1e-5, 2e-5, 3e-5, 5e-5]
 
-    output_dir = "./imdb_nn/output"
+    output_dir = "./im/output"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -281,7 +319,7 @@ if __name__ == "__main__":
         train_labels,
         val_texts,
         val_labels,
-        input_dim,
+        tokenizer,
         output_dir,
     )
     plot_hyperparameter_tuning_results(batch_size_results, "batch_size", output_dir)
@@ -293,21 +331,9 @@ if __name__ == "__main__":
         train_labels,
         val_texts,
         val_labels,
-        input_dim,
+        tokenizer,
         output_dir,
     )
     plot_hyperparameter_tuning_results(
         learning_rate_results, "learning_rate", output_dir
     )
-
-    dropout_rate_results = evaluate_hyperparameters(
-        dropout_rates,
-        "dropout",
-        train_texts,
-        train_labels,
-        val_texts,
-        val_labels,
-        input_dim,
-        output_dir,
-    )
-    plot_hyperparameter_tuning_results(dropout_rate_results, "dropout", output_dir)

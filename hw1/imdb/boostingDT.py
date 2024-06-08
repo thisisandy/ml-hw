@@ -3,6 +3,7 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import (
@@ -24,6 +25,9 @@ def set_seed(seed=42):
 
 # Set seeds for reproducibility
 set_seed(42)
+
+# Initialize Seaborn style
+sns.set(style="whitegrid")
 
 
 class BoostingModelEvaluator:
@@ -53,7 +57,7 @@ class BoostingModelEvaluator:
         smoothed_train_errors = self.smooth(train_errors)
         smoothed_test_errors = self.smooth(test_errors)
 
-        ax.set_title(f"Learning Curve: {self.name}", fontsize=16)
+        ax.set_title(f"Learning Curve: {self.name}", fontsize=18, weight="bold")
         ax.set_xlabel("Training examples", fontsize=14)
         ax.set_ylabel("Error rate", fontsize=14)
         ax.grid(True)
@@ -74,6 +78,7 @@ class BoostingModelEvaluator:
         ax.legend(loc="best", fontsize=12)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
+        sns.despine()
         output_path = os.path.join(self.output_dir, "boosting_learning_curve.png")
         plt.savefig(output_path)
         plt.close()
@@ -110,13 +115,14 @@ class BoostingModelEvaluator:
             color="navy",
             lw=2,
         )
-        ax.set_title(f"Model Complexity: {self.name}", fontsize=16)
+        ax.set_title(f"Model Complexity: {self.name}", fontsize=18, weight="bold")
         ax.set_xlabel(param_name, fontsize=14)
         ax.set_ylabel("Error rate", fontsize=14)
         ax.legend(loc="best", fontsize=12)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         ax.grid(True)
+        sns.despine()
         output_path = os.path.join(self.output_dir, "boosting_model_complexity.png")
         plt.savefig(output_path)
         plt.close()

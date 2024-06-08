@@ -3,6 +3,7 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import learning_curve, train_test_split, validation_curve
 from sklearn.neighbors import KNeighborsClassifier
@@ -18,6 +19,9 @@ def set_seed(seed=42):
 
 # Set seeds for reproducibility
 set_seed(42)
+
+# Initialize Seaborn style
+sns.set(style="whitegrid")
 
 
 # Data preparation function
@@ -51,7 +55,7 @@ class KNNModelEvaluator:
     def plot_learning_curve(self, X, y):
         fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
         train_sizes, train_scores, test_scores = learning_curve(
-            self.model, X, y, cv=10, n_jobs=1, train_sizes=np.linspace(0.1, 1.0, 10)
+            self.model, X, y, cv=10, n_jobs=-1, train_sizes=np.linspace(0.1, 1.0, 10)
         )
         train_errors = 1 - np.mean(train_scores, axis=1)
         test_errors = 1 - np.mean(test_scores, axis=1)
@@ -59,7 +63,7 @@ class KNNModelEvaluator:
         smoothed_train_errors = self.smooth(train_errors)
         smoothed_test_errors = self.smooth(test_errors)
 
-        ax.set_title(f"Learning Curve: {self.name}", fontsize=16)
+        ax.set_title(f"Learning Curve: {self.name}", fontsize=18, weight="bold")
         ax.set_xlabel("Training examples", fontsize=14)
         ax.set_ylabel("Error rate", fontsize=14)
         ax.grid(True)
@@ -80,6 +84,7 @@ class KNNModelEvaluator:
         ax.legend(loc="best", fontsize=12)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
+        sns.despine()
         output_path = os.path.join(self.output_dir, "knn_learning_curve.png")
         plt.savefig(output_path)
         plt.close()
@@ -94,7 +99,7 @@ class KNNModelEvaluator:
             param_range=param_range,
             cv=10,
             scoring="accuracy",
-            n_jobs=1,
+            n_jobs=-1,
         )
         train_errors = 1 - np.mean(train_scores, axis=1)
         test_errors = 1 - np.mean(test_scores, axis=1)
@@ -116,13 +121,14 @@ class KNNModelEvaluator:
             color="navy",
             lw=2,
         )
-        ax.set_title(f"Model Complexity: {self.name}", fontsize=16)
+        ax.set_title(f"Model Complexity: {self.name}", fontsize=18, weight="bold")
         ax.set_xlabel(param_name, fontsize=14)
         ax.set_ylabel("Error rate", fontsize=14)
         ax.legend(loc="best", fontsize=12)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         ax.grid(True)
+        sns.despine()
         output_path = os.path.join(self.output_dir, f"{param_name}_complexity.png")
         plt.savefig(output_path)
         plt.close()
@@ -152,7 +158,7 @@ def evaluate_hyperparameters(
         param_range=param_range,
         cv=10,
         scoring="accuracy",
-        n_jobs=1,
+        n_jobs=-1,
     )
     train_errors = 1 - np.mean(train_scores, axis=1)
     test_errors = 1 - np.mean(test_scores, axis=1)
@@ -174,13 +180,14 @@ def evaluate_hyperparameters(
         color="navy",
         lw=2,
     )
-    ax.set_title("Model Complexity: k-Nearest Neighbors", fontsize=16)
+    ax.set_title("Model Complexity: k-Nearest Neighbors", fontsize=18, weight="bold")
     ax.set_xlabel(param_name, fontsize=14)
     ax.set_ylabel("Error rate", fontsize=14)
     ax.legend(loc="best", fontsize=12)
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     ax.grid(True)
+    sns.despine()
     output_path = os.path.join(output_dir, f"{param_name}_complexity.png")
     plt.savefig(output_path)
     plt.close()

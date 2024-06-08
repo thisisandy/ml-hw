@@ -3,6 +3,7 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import learning_curve, train_test_split, validation_curve
 from sklearn.svm import SVC
@@ -18,6 +19,9 @@ def set_seed(seed=42):
 
 # Set seeds for reproducibility
 set_seed(42)
+
+# Initialize Seaborn style
+sns.set(style="whitegrid")
 
 
 # Data preparation function
@@ -76,6 +80,7 @@ class SVMModelEvaluator:
         ax.set_ylabel("Error rate", fontsize=14)
         ax.legend(loc="best", fontsize=12)
         ax.grid(True)
+        sns.despine()
 
     def plot_model_complexity(self, X, y, param_name, param_range, ax=None):
         train_scores, test_scores = validation_curve(
@@ -112,6 +117,7 @@ class SVMModelEvaluator:
         ax.set_ylabel("Error rate", fontsize=14)
         ax.legend(loc="best", fontsize=12)
         ax.grid(True)
+        sns.despine()
 
     def smooth(self, values, smoothing_factor=0.1):
         smoothed_values = []
@@ -154,7 +160,7 @@ def plot_kernel_comparison(X_train, y_train, param_range, output_dir="./output/i
 # Main execution
 def main():
     X_train, X_test, y_train, y_test = load_and_prepare_data()
-    param_range = np.logspace(-3, 3, 7)
+    param_range = np.linspace(0.001, 1, 20)
 
     plot_kernel_comparison(X_train, y_train, param_range)
 

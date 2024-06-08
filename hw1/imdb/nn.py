@@ -5,11 +5,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
+import seaborn as sns
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from sklearn.feature_extraction.text import TfidfVectorizer
 from torch.utils.data import DataLoader, Dataset
+
+from datasets import load_dataset
 
 
 # Function to set seeds for reproducibility
@@ -28,6 +31,9 @@ def set_seed(seed=42):
 # Set seeds for reproducibility
 set_seed(42)
 
+# Initialize Seaborn style
+sns.set(style="whitegrid")
+
 
 # Dataset and DataModule classes
 class IMDBDataset(Dataset):
@@ -36,10 +42,10 @@ class IMDBDataset(Dataset):
         self.labels = labels
 
     def __len__(self):
-        return len(self.texts)
+        return self.texts.shape[0]
 
     def __getitem__(self, idx):
-        text = self.texts[idx].toarray()[0]  # convert sparse matrix to array
+        text = self.texts[idx].toarray()[0]
         label = self.labels[idx]
         return {
             "text": torch.tensor(text, dtype=torch.float32),
@@ -62,12 +68,20 @@ class IMDBDataModule(pl.LightningDataModule):
 
     def train_dataloader(self):
         return DataLoader(
-            self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=4
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=4,
+            persistent_workers=True,
         )
 
     def val_dataloader(self):
         return DataLoader(
-            self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=4
+            self.val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=4,
+            persistent_workers=True,
         )
 
 
@@ -85,6 +99,7 @@ class IMDBClassifier(pl.LightningModule):
             nn.Linear(64, n_classes),
         )
         self.lr = lr
+        self.dropout = dropout
 
     def forward(self, x):
         return self.model(x)
@@ -94,9 +109,8 @@ class IMDBClassifier(pl.LightningModule):
         labels = batch["label"]
         outputs = self(texts)
         loss = nn.CrossEntropyLoss()(outputs, labels)
-        preds = torch.argmax(outputs, dim=1)
-        error_rate = (preds != labels).float().mean()
-        self.log("train_error_rate", error_rate, prog_bar=True)
+        torch.argmax(outputs, dim=1)
+        self.log("train_error_rate", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -104,9 +118,7 @@ class IMDBClassifier(pl.LightningModule):
         labels = batch["label"]
         outputs = self(texts)
         loss = nn.CrossEntropyLoss()(outputs, labels)
-        preds = torch.argmax(outputs, dim=1)
-        error_rate = (preds != labels).float().mean()
-        self.log("val_error_rate", error_rate, on_epoch=True, prog_bar=True)
+        self.log("val_error_rate", loss, on_epoch=True, prog_bar=True)
         return loss
 
     def configure_optimizers(self):
@@ -140,14 +152,21 @@ class ErrorRatePlotterCallback(pl.Callback):
         plt.figure(figsize=(10, 5), dpi=300)
         plt.plot(smoothed_train_error_rates, label="Training Error Rate")
         plt.plot(smoothed_val_error_rates, label="Validation Error Rate")
-        plt.title("Training and Validation Error Rate Over Epochs")
-        plt.xlabel("Epoch")
-        plt.ylabel("Error Rate")
+
+        plt.xlabel("Epoch", fontsize=14)
+        plt.ylabel("Error Rate", fontsize=14)
         plt.legend()
         plt.grid(True)
-
+        sns.despine()
+        dropout = pl_module.dropout if hasattr(pl_module, "dropout") else 0.5
+        lr = pl_module.lr if hasattr(pl_module, "lr") else 0.01
+        plt.title(
+            f"Error Rate vs. Epoch (Dropout={dropout}, LR={lr}",
+            fontsize=18,
+            weight="bold",
+        )
         output_path = os.path.join(
-            self.output_dir, "nn_training_validation_error_rate.png"
+            self.output_dir, f"./nn/{dropout}_{lr}_error_rate.png"
         )
         plt.savefig(output_path)
         plt.close()
@@ -189,7 +208,7 @@ def evaluate_hyperparameters(
     val_texts,
     val_labels,
     input_dim,
-    output_dir="./imdb_nn/output",
+    output_dir="./output/im",
 ):
     results = []
     for value in hyperparameter_values:
@@ -245,11 +264,14 @@ def plot_hyperparameter_tuning_results(
     plt.plot(
         df[hyperparameter_name], df["val_error_rate"], label="Validation Error Rate"
     )
-    plt.title(f"Effect of {hyperparameter_name} on Error Rate")
-    plt.xlabel(hyperparameter_name)
-    plt.ylabel("Error Rate")
+    plt.title(
+        f"Effect of {hyperparameter_name} on Error Rate", fontsize=18, weight="bold"
+    )
+    plt.xlabel(hyperparameter_name, fontsize=14)
+    plt.ylabel("Error Rate", fontsize=14)
     plt.legend()
     plt.grid(True)
+    sns.despine()
 
     output_path = os.path.join(
         output_dir, f"nn_{hyperparameter_name}_tuning_results.png"

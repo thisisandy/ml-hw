@@ -3,6 +3,7 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 from sklearn import datasets
 from sklearn.model_selection import learning_curve, train_test_split, validation_curve
 from sklearn.preprocessing import StandardScaler
@@ -18,6 +19,9 @@ def set_seed(seed=42):
 # Set seeds for reproducibility
 set_seed(42)
 
+# Initialize Seaborn style
+sns.set(style="whitegrid")
+
 
 class SVMModelEvaluator:
     def __init__(self, model, name, output_dir="./output/digit"):
@@ -30,8 +34,7 @@ class SVMModelEvaluator:
     def train(self, X_train, y_train):
         self.model.fit(X_train, y_train)
 
-    def plot_learning_curve(self, X, y):
-        fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
+    def plot_learning_curve(self, X, y, ax=None):
         train_sizes, train_scores, test_scores = learning_curve(
             self.model, X, y, cv=10, n_jobs=-1, train_sizes=np.linspace(0.1, 1.0, 10)
         )
@@ -41,33 +44,28 @@ class SVMModelEvaluator:
         smoothed_train_errors = self.smooth(train_errors)
         smoothed_test_errors = self.smooth(test_errors)
 
-        ax.set_title(f"Learning Curve: {self.name}", fontsize=16)
-        ax.set_xlabel("Training examples", fontsize=14)
-        ax.set_ylabel("Error rate", fontsize=14)
-        ax.grid(True)
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
         ax.plot(
             train_sizes,
             smoothed_train_errors,
-            color="r",
-            label="Training error",
+            label=f"{self.name} - Training error",
             linewidth=2,
         )
         ax.plot(
             train_sizes,
             smoothed_test_errors,
-            color="g",
-            label="Cross-validation error",
+            label=f"{self.name} - Cross-validation error",
             linewidth=2,
         )
+        ax.set_title(f"Learning Curve: {self.name}", fontsize=18, weight="bold")
+        ax.set_xlabel("Training examples", fontsize=14)
+        ax.set_ylabel("Error rate", fontsize=14)
         ax.legend(loc="best", fontsize=12)
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        output_path = os.path.join(self.output_dir, "svm_learning_curve.png")
-        plt.savefig(output_path)
-        plt.close()
+        ax.grid(True)
+        sns.despine()
 
-    def plot_model_complexity(self, X, y, param_name, param_range):
-        fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
+    def plot_model_complexity(self, X, y, param_name, param_range, ax=None):
         train_scores, test_scores = validation_curve(
             self.model,
             X,
@@ -84,30 +82,26 @@ class SVMModelEvaluator:
         smoothed_train_errors = self.smooth(train_errors)
         smoothed_test_errors = self.smooth(test_errors)
 
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
         ax.plot(
             param_range,
             smoothed_train_errors,
-            label="Training error",
-            color="darkorange",
-            lw=2,
+            label=f"{self.name} - Training error",
+            linewidth=2,
         )
         ax.plot(
             param_range,
             smoothed_test_errors,
-            label="Cross-validation error",
-            color="navy",
-            lw=2,
+            label=f"{self.name} - Cross-validation error",
+            linewidth=2,
         )
-        ax.set_title(f"Model Complexity: {self.name}", fontsize=16)
+        ax.set_title(f"Model Complexity: {self.name}", fontsize=18, weight="bold")
         ax.set_xlabel(param_name, fontsize=14)
         ax.set_ylabel("Error rate", fontsize=14)
         ax.legend(loc="best", fontsize=12)
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
         ax.grid(True)
-        output_path = os.path.join(self.output_dir, "svm_model_complexity.png")
-        plt.savefig(output_path)
-        plt.close()
+        sns.despine()
 
     def smooth(self, values, smoothing_factor=0.1):
         smoothed_values = []
@@ -134,13 +128,35 @@ def load_and_prepare_data():
     return X_train, X_test, y_train, y_test, X, y
 
 
+def plot_kernel_comparison(X_train, y_train, param_range, output_dir="./output/digit"):
+    fig, axes = plt.subplots(2, 1, figsize=(10, 12), dpi=300)
+
+    linear_svm = SVC(kernel="linear", C=1.0)
+    rbf_svm = SVC(kernel="rbf", C=1.0, gamma="scale")
+
+    linear_evaluator = SVMModelEvaluator(linear_svm, "Linear SVM", output_dir)
+    rbf_evaluator = SVMModelEvaluator(rbf_svm, "RBF SVM", output_dir)
+
+    linear_evaluator.plot_learning_curve(X_train, y_train, ax=axes[0])
+    rbf_evaluator.plot_learning_curve(X_train, y_train, ax=axes[0])
+    axes[0].set_title("Learning Curve Comparison", fontsize=16)
+
+    linear_evaluator.plot_model_complexity(
+        X_train, y_train, "C", param_range, ax=axes[1]
+    )
+    rbf_evaluator.plot_model_complexity(X_train, y_train, "C", param_range, ax=axes[1])
+    axes[1].set_title("Model Complexity Comparison", fontsize=16)
+
+    plt.tight_layout()
+    output_path = os.path.join(output_dir, "svm_kernel_comparison.png")
+    plt.savefig(output_path)
+    plt.close()
+
+
 def main():
     X_train, X_test, y_train, y_test, X, y = load_and_prepare_data()
-    svm_model = SVC(kernel="rbf", C=100, gamma=0.001)
-    model_evaluator = SVMModelEvaluator(svm_model, "SVM")
-    model_evaluator.train(X_train, y_train)
-    model_evaluator.plot_learning_curve(X, y)
-    model_evaluator.plot_model_complexity(X, y, "C", np.logspace(-3, 3, 7))
+    param_range = np.linspace(0.001, 0.4, 20)
+    plot_kernel_comparison(X_train, y_train, param_range)
 
 
 if __name__ == "__main__":

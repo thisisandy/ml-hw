@@ -90,12 +90,20 @@ class IMDBDataModule(pl.LightningDataModule):
 
     def train_dataloader(self):
         return DataLoader(
-            self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=4
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=4,
+            persistent_workers=True,
         )
 
     def val_dataloader(self):
         return DataLoader(
-            self.val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=4
+            self.val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=4,
+            persistent_workers=True,
         )
 
 
@@ -121,10 +129,7 @@ class IMDBClassifier(pl.LightningModule):
         labels = batch["labels"]
         outputs = self(input_ids, attention_mask, labels)
         loss = outputs.loss
-        logits = outputs.logits
-        preds = torch.argmax(logits, dim=1)
-        error_rate = (preds != labels).float().mean()
-        self.log("train_error_rate", error_rate, prog_bar=True)
+        self.log("train_error_rate", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -133,10 +138,7 @@ class IMDBClassifier(pl.LightningModule):
         labels = batch["labels"]
         outputs = self(input_ids, attention_mask, labels)
         loss = outputs.loss
-        logits = outputs.logits
-        preds = torch.argmax(logits, dim=1)
-        error_rate = (preds != labels).float().mean()
-        self.log("val_error_rate", error_rate, on_epoch=True, prog_bar=True)
+        self.log("val_error_rate", loss, on_epoch=True, prog_bar=True)
         return loss
 
     def configure_optimizers(self):

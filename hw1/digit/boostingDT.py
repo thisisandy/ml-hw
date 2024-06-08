@@ -3,6 +3,7 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 from sklearn.datasets import load_digits
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.model_selection import learning_curve, train_test_split, validation_curve
@@ -32,7 +33,8 @@ class BoostingModelEvaluator:
         self.model.fit(X_train, y_train)
 
     def plot_learning_curve(self, X, y):
-        fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
+        sns.set(style="whitegrid")
+        fig, ax = plt.subplots(figsize=(12, 8), dpi=300)
         train_sizes, train_scores, test_scores = learning_curve(
             self.model, X, y, cv=10, n_jobs=-1, train_sizes=np.linspace(0.1, 1.0, 10)
         )
@@ -42,25 +44,26 @@ class BoostingModelEvaluator:
         smoothed_train_errors = self.smooth(train_errors)
         smoothed_test_errors = self.smooth(test_errors)
 
-        ax.set_title(f"Learning Curve: {self.name}", fontsize=16)
-        ax.set_xlabel("Training examples", fontsize=14)
-        ax.set_ylabel("Error rate", fontsize=14)
-        ax.grid(True)
         ax.plot(
             train_sizes,
             smoothed_train_errors,
-            color="r",
+            color="red",
             label="Training error",
             linewidth=2,
         )
         ax.plot(
             train_sizes,
             smoothed_test_errors,
-            color="g",
+            color="green",
             label="Cross-validation error",
             linewidth=2,
         )
+
+        ax.set_title(f"Learning Curve: {self.name}", fontsize=16)
+        ax.set_xlabel("Training examples", fontsize=14)
+        ax.set_ylabel("Error rate", fontsize=14)
         ax.legend(loc="best", fontsize=12)
+        ax.grid(True)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         output_path = os.path.join(self.output_dir, "boosting_learning_curve.png")
@@ -68,7 +71,8 @@ class BoostingModelEvaluator:
         plt.close()
 
     def plot_model_complexity(self, X, y, param_name, param_range):
-        fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
+        sns.set_theme(style="whitegrid")
+        fig, ax = plt.subplots(figsize=(12, 8), dpi=300)
         train_scores, test_scores = validation_curve(
             self.model,
             X,
@@ -99,13 +103,14 @@ class BoostingModelEvaluator:
             color="navy",
             lw=2,
         )
+
         ax.set_title(f"Model Complexity: {self.name}", fontsize=16)
         ax.set_xlabel(param_name, fontsize=14)
         ax.set_ylabel("Error rate", fontsize=14)
         ax.legend(loc="best", fontsize=12)
+        ax.grid(True)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
-        ax.grid(True)
         output_path = os.path.join(self.output_dir, "boosting_model_complexity.png")
         plt.savefig(output_path)
         plt.close()

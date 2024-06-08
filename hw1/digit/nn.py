@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
+import seaborn as sns
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -29,6 +30,9 @@ def set_seed(seed=42):
 
 # Set seeds for reproducibility
 set_seed(42)
+
+# Initialize Seaborn style
+sns.set(style="whitegrid")
 
 
 # Data preparation function
@@ -70,18 +74,14 @@ class EnhancedNN(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = nn.CrossEntropyLoss()(y_hat, y)
-        preds = torch.argmax(y_hat, dim=1)
-        error_rate = (preds != y).float().mean()
-        self.log("train_error_rate", error_rate, prog_bar=True)
+        self.log("train_error_rate", loss, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
         loss = nn.CrossEntropyLoss()(y_hat, y)
-        preds = torch.argmax(y_hat, dim=1)
-        error_rate = (preds != y).float().mean()
-        self.log("val_error_rate", error_rate, on_epoch=True, prog_bar=True)
+        self.log("val_error_rate", loss, on_epoch=True, prog_bar=True)
         return loss
 
     def configure_optimizers(self):
@@ -99,11 +99,21 @@ class DigitsDataModule(pl.LightningDataModule):
 
     def train_dataloader(self):
         train_dataset = TensorDataset(self.X_train, self.y_train)
-        return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
+        return DataLoader(
+            train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            persistent_workers=True,
+        )
 
     def val_dataloader(self):
         val_dataset = TensorDataset(self.X_val, self.y_val)
-        return DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False)
+        return DataLoader(
+            val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            persistent_workers=True,
+        )
 
 
 # Callback to plot error rates
@@ -134,14 +144,18 @@ class ErrorRatePlotterCallback(pl.Callback):
         plt.figure(figsize=(10, 5), dpi=300)
         plt.plot(smoothed_train_error_rates, label="Training Error Rate")
         plt.plot(smoothed_val_error_rates, label="Validation Error Rate")
-        plt.title("Training and Validation Error Rate Over Epochs")
-        plt.xlabel("Epoch")
-        plt.ylabel("Error Rate")
+        plt.title(
+            "Training and Validation Error Rate Over Epochs", fontsize=16, weight="bold"
+        )
+        plt.xlabel("Epoch", fontsize=14)
+        plt.ylabel("Error Rate", fontsize=14)
         plt.legend()
         plt.grid(True)
-
+        sns.despine()
+        lr = pl_module.lr if hasattr(pl_module, "lr") else 0.01
+        dropout = pl_module.dropout if hasattr(pl_module, "dropout") else 0.5
         output_path = os.path.join(
-            self.output_dir, "nn_training_validation_error_rate.png"
+            self.output_dir, f"./nn/error_rate_lr_{lr}_dropout_{dropout}.png"
         )
         plt.savefig(output_path)
         plt.close()
@@ -178,7 +192,7 @@ def evaluate_hyperparameters(
             data_module = DigitsDataModule()
 
         trainer = Trainer(
-            max_epochs=100, callbacks=[ErrorRatePlotterCallback()], logger=False
+            max_epochs=20, callbacks=[ErrorRatePlotterCallback()], logger=False
         )
         trainer.fit(model, data_module)
 
@@ -208,12 +222,18 @@ def plot_hyperparameter_tuning_results(
     plt.plot(
         df[hyperparameter_name], df["val_error_rate"], label="Validation Error Rate"
     )
-    plt.title(f"Effect of {hyperparameter_name} on Error Rate")
-    plt.xlabel(hyperparameter_name)
-    plt.ylabel("Error Rate")
+    plt.title(
+        f"Effect of {hyperparameter_name} on Error Rate", fontsize=16, weight="bold"
+    )
+    plt.xlabel(hyperparameter_name, fontsize=14)
+    plt.ylabel("Error Rate", fontsize=14)
     plt.legend()
     plt.grid(True)
-    output_path = os.path.join(output_dir, f"{hyperparameter_name}_tuning_results.png")
+    sns.despine()
+
+    output_path = os.path.join(
+        output_dir, f"nn_{hyperparameter_name}_tuning_results.png"
+    )
     plt.savefig(output_path)
     plt.close()
 

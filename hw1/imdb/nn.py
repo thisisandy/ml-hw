@@ -290,7 +290,9 @@ def plot_hyperparameter_tuning_results(
     plt.legend()
     plt.grid(True)
 
-    output_path = os.path.join(output_dir, f"{hyperparameter_name}_tuning_results.png")
+    output_path = os.path.join(
+        output_dir, f"nn_{hyperparameter_name}_tuning_results.png"
+    )
     plt.savefig(output_path)
     plt.close()
 

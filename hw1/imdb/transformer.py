@@ -151,7 +151,7 @@ class IMDBClassifier(pl.LightningModule):
 
 
 class ErrorRatePlotterCallback(pl.Callback):
-    def __init__(self, smoothing_factor=0.1, output_dir="./im/output"):
+    def __init__(self, smoothing_factor=0.1, output_dir="./output/im"):
         super().__init__()
         self.train_error_rates = []
         self.val_error_rates = []
@@ -224,7 +224,7 @@ def evaluate_hyperparameters(
     val_texts,
     val_labels,
     tokenizer,
-    output_dir="./im/output",
+    output_dir="./output/im",
 ):
     results = []
     for value in hyperparameter_values:
@@ -254,7 +254,7 @@ def evaluate_hyperparameters(
             raise ValueError("Unsupported hyperparameter for evaluation")
 
         trainer = pl.Trainer(
-            max_epochs=10,
+            max_epochs=4,
             callbacks=[ErrorRatePlotterCallback(output_dir=output_dir)],
             accelerator="gpu",
         )
@@ -275,7 +275,7 @@ def evaluate_hyperparameters(
 
 
 def plot_hyperparameter_tuning_results(
-    results, hyperparameter_name, output_dir="./im/output"
+    results, hyperparameter_name, output_dir="./output/im"
 ):
     df = pd.DataFrame(results)
     plt.figure(figsize=(10, 5), dpi=300)
@@ -308,7 +308,7 @@ if __name__ == "__main__":
     batch_sizes = [4, 8, 16, 32]
     learning_rates = [1e-5, 2e-5, 3e-5, 5e-5]
 
-    output_dir = "./im/output"
+    output_dir = "./output/im"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 

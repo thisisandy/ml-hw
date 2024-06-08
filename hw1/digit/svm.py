@@ -20,7 +20,7 @@ set_seed(42)
 
 
 class SVMModelEvaluator:
-    def __init__(self, model, name, output_dir="./digit/output"):
+    def __init__(self, model, name, output_dir="./output/digit"):
         self.model = model
         self.name = name
         self.output_dir = output_dir

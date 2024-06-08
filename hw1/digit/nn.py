@@ -108,7 +108,7 @@ class DigitsDataModule(pl.LightningDataModule):
 
 # Callback to plot error rates
 class ErrorRatePlotterCallback(pl.Callback):
-    def __init__(self, smoothing_factor=0.1, output_dir="./digit/output"):
+    def __init__(self, smoothing_factor=0.1, output_dir="./output/digit"):
         super().__init__()
         self.train_error_rates = []
         self.val_error_rates = []
@@ -160,7 +160,7 @@ class ErrorRatePlotterCallback(pl.Callback):
 
 # Function to evaluate hyperparameters and plot complexity curves
 def evaluate_hyperparameters(
-    hyperparameter_values, hyperparameter_name, output_dir="./digit/output"
+    hyperparameter_values, hyperparameter_name, output_dir="./output/digit"
 ):
     results = []
 
@@ -198,7 +198,7 @@ def evaluate_hyperparameters(
 
 # Function to plot hyperparameter tuning results
 def plot_hyperparameter_tuning_results(
-    results, hyperparameter_name, output_dir="./digit/output"
+    results, hyperparameter_name, output_dir="./output/digit"
 ):
     df = pd.DataFrame(results)
     plt.figure(figsize=(10, 5), dpi=300)

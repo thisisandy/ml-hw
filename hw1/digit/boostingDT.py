@@ -33,7 +33,7 @@ class BoostingModelEvaluator:
         self.model.fit(X_train, y_train)
 
     def plot_learning_curve(self, X, y):
-        sns.set(style="whitegrid")
+        sns.set_theme(style="whitegrid")
         fig, ax = plt.subplots(figsize=(12, 8), dpi=300)
         train_sizes, train_scores, test_scores = learning_curve(
             self.model, X, y, cv=10, n_jobs=-1, train_sizes=np.linspace(0.1, 1.0, 10)
@@ -129,6 +129,10 @@ class BoostingModelEvaluator:
 
 def load_and_prepare_data():
     digits = load_digits()
+    # rotate randomly each image by 90, 180, or 270 degrees
+    for i in range(len(digits.images)):
+        n = random.randint(1, 3)
+        digits.images[i] = np.rot90(digits.images[i], n)
     X = digits.data
     y = digits.target
     X_train, X_test, y_train, y_test = train_test_split(

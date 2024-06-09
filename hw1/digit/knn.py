@@ -129,6 +129,10 @@ class KNNModelEvaluator:
 
 def load_and_prepare_data():
     digits = datasets.load_digits()
+    # rotate randomly each image by 90, 180, or 270 degrees
+    for i in range(len(digits.images)):
+        n = random.randint(1, 3)
+        digits.images[i] = np.rot90(digits.images[i], n)
     X = digits.images.reshape((len(digits.images), -1))
     y = digits.target
     X_train, X_test, y_train, y_test = train_test_split(

@@ -17,3 +17,7 @@ python hw1/digit/svm.py
 ```
 
 Relavant output figures and files will be saved in the output folder.
+
+For overleaf report, please visit the following link:
+https://www.overleaf.com/read/fpfrprpjwgkt#0fe368
+```

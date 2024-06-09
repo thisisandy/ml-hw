@@ -129,7 +129,7 @@ class KNNModelEvaluator:
         plt.yticks(fontsize=12)
         ax.grid(True)
         sns.despine()
-        output_path = os.path.join(self.output_dir, f"{param_name}_complexity.png")
+        output_path = os.path.join(self.output_dir, f"knn_{param_name}_complexity.png")
         plt.savefig(output_path)
         plt.close()
 

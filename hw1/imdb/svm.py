@@ -132,8 +132,10 @@ class SVMModelEvaluator:
 
 
 # Function to plot comparison of kernels
-def plot_kernel_comparison(X_train, y_train, param_range, output_dir="./output/im"):
-    fig, axes = plt.subplots(2, 1, figsize=(10, 12), dpi=300)
+def plot_kernel_comparison(
+    X_train, y_train, param_range, gamma_range, output_dir="./output/im"
+):
+    fig, axes = plt.subplots(3, 1, figsize=(10, 18), dpi=300)
 
     linear_svm = SVC(kernel="linear", C=1.0)
     rbf_svm = SVC(kernel="rbf", C=1.0, gamma="scale")
@@ -149,7 +151,14 @@ def plot_kernel_comparison(X_train, y_train, param_range, output_dir="./output/i
         X_train, y_train, "C", param_range, ax=axes[1]
     )
     rbf_evaluator.plot_model_complexity(X_train, y_train, "C", param_range, ax=axes[1])
-    axes[1].set_title("Model Complexity Comparison", fontsize=16)
+    axes[1].set_title("Model Complexity Comparison: C Parameter", fontsize=16)
+
+    rbf_evaluator.plot_model_complexity(
+        X_train, y_train, "gamma", gamma_range, ax=axes[2]
+    )
+    axes[2].set_title(
+        "Model Complexity Comparison: Gamma Parameter (RBF only)", fontsize=16
+    )
 
     plt.tight_layout()
     output_path = os.path.join(output_dir, "svm_kernel_comparison.png")
@@ -161,8 +170,9 @@ def plot_kernel_comparison(X_train, y_train, param_range, output_dir="./output/i
 def main():
     X_train, X_test, y_train, y_test = load_and_prepare_data()
     param_range = np.linspace(0.001, 1, 20)
+    gamma_range = np.logspace(-6, -1, 20)
 
-    plot_kernel_comparison(X_train, y_train, param_range)
+    plot_kernel_comparison(X_train, y_train, param_range, gamma_range)
 
 
 if __name__ == "__main__":

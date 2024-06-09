@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
+from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 from transformers import (
     AdamW,
@@ -13,8 +14,6 @@ from transformers import (
     BertTokenizer,
     get_linear_schedule_with_warmup,
 )
-
-from datasets import load_dataset
 
 
 # Function to set seeds for reproducibility
@@ -307,8 +306,8 @@ if __name__ == "__main__":
     train_texts, train_labels, val_texts, val_labels = load_and_prepare_data()
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
-    batch_sizes = [4, 8, 16, 32]
-    learning_rates = [1e-5, 2e-5, 3e-5, 5e-5]
+    batch_sizes = [4, 16, 64, 128]
+    learning_rates = [1e-5, 1e-4, 1e-3, 1e-2]
 
     output_dir = "./output/im"
     if not os.path.exists(output_dir):

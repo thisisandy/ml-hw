@@ -71,7 +71,7 @@ class KNNModelEvaluator:
         plt.savefig(output_path)
         plt.close()
 
-    def plot_model_complexity(self, X, y, param_name, param_range):
+    def plot_model_complexity(self, X, y, param_name, param_range, plot_name_suffix):
         fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
         train_scores, test_scores = validation_curve(
             self.model,
@@ -103,7 +103,11 @@ class KNNModelEvaluator:
             color="navy",
             lw=2,
         )
-        ax.set_title(f"Model Complexity: {self.name}", fontsize=18, weight="bold")
+        ax.set_title(
+            f"Model Complexity: {self.name} ({plot_name_suffix})",
+            fontsize=18,
+            weight="bold",
+        )
         ax.set_xlabel(param_name, fontsize=14)
         ax.set_ylabel("Error rate", fontsize=14)
         ax.legend(loc="best", fontsize=12)
@@ -111,7 +115,9 @@ class KNNModelEvaluator:
         plt.yticks(fontsize=12)
         ax.grid(True)
         sns.despine()
-        output_path = os.path.join(self.output_dir, "knn_model_complexity.png")
+        output_path = os.path.join(
+            self.output_dir, f"knn_model_complexity_{plot_name_suffix}.png"
+        )
         plt.savefig(output_path)
         plt.close()
 
@@ -146,7 +152,12 @@ def main():
     model_evaluator = KNNModelEvaluator(knn_model, "k-Nearest Neighbors")
     model_evaluator.train(X_train, y_train)
     model_evaluator.plot_learning_curve(X, y)
-    model_evaluator.plot_model_complexity(X, y, "n_neighbors", range(1, 101, 10))
+    model_evaluator.plot_model_complexity(
+        X, y, "n_neighbors", range(1, 101, 10), "n_neighbors"
+    )
+    model_evaluator.plot_model_complexity(
+        X, y, "leaf_size", range(10, 61, 10), "leaf_size"
+    )
 
 
 if __name__ == "__main__":

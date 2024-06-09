@@ -70,7 +70,7 @@ class BoostingModelEvaluator:
         plt.savefig(output_path)
         plt.close()
 
-    def plot_model_complexity(self, X, y, param_name, param_range):
+    def plot_model_complexity(self, X, y, param_name, param_range, plot_name_suffix):
         sns.set_theme(style="whitegrid")
         fig, ax = plt.subplots(figsize=(12, 8), dpi=300)
         train_scores, test_scores = validation_curve(
@@ -104,14 +104,16 @@ class BoostingModelEvaluator:
             lw=2,
         )
 
-        ax.set_title(f"Model Complexity: {self.name}", fontsize=16)
+        ax.set_title(f"Model Complexity: {self.name} ({plot_name_suffix})", fontsize=16)
         ax.set_xlabel(param_name, fontsize=14)
         ax.set_ylabel("Error rate", fontsize=14)
         ax.legend(loc="best", fontsize=12)
         ax.grid(True)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
-        output_path = os.path.join(self.output_dir, "boosting_model_complexity.png")
+        output_path = os.path.join(
+            self.output_dir, f"boosting_model_complexity_{plot_name_suffix}.png"
+        )
         plt.savefig(output_path)
         plt.close()
 
@@ -152,7 +154,16 @@ def main():
     model_evaluator = BoostingModelEvaluator(ada_boost, "AdaBoost with Decision Trees")
     model_evaluator.train(X_train, y_train)
     model_evaluator.plot_learning_curve(X, y)
-    model_evaluator.plot_model_complexity(X, y, "n_estimators", [10, 20, 30, 50, 100])
+    model_evaluator.plot_model_complexity(
+        X, y, "n_estimators", [10, 20, 30, 50, 100], "n_estimators"
+    )
+    model_evaluator.plot_model_complexity(
+        X_train,
+        y_train,
+        "learning_rate",
+        np.logspace(-3, -1, 5),
+        "learning_rate",
+    )
 
 
 if __name__ == "__main__":

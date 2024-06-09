@@ -83,7 +83,7 @@ class BoostingModelEvaluator:
         plt.savefig(output_path)
         plt.close()
 
-    def plot_model_complexity(self, X, y, param_name, param_range):
+    def plot_model_complexity(self, X, y, param_name, param_range, plot_name_suffix):
         fig, ax = plt.subplots(figsize=(10, 6), dpi=300)
         train_scores, test_scores = validation_curve(
             self.model,
@@ -115,7 +115,11 @@ class BoostingModelEvaluator:
             color="navy",
             lw=2,
         )
-        ax.set_title(f"Model Complexity: {self.name}", fontsize=18, weight="bold")
+        ax.set_title(
+            f"Model Complexity: {self.name} ({plot_name_suffix})",
+            fontsize=18,
+            weight="bold",
+        )
         ax.set_xlabel(param_name, fontsize=14)
         ax.set_ylabel("Error rate", fontsize=14)
         ax.legend(loc="best", fontsize=12)
@@ -123,7 +127,9 @@ class BoostingModelEvaluator:
         plt.yticks(fontsize=12)
         ax.grid(True)
         sns.despine()
-        output_path = os.path.join(self.output_dir, "boosting_model_complexity.png")
+        output_path = os.path.join(
+            self.output_dir, f"boosting_model_complexity_{plot_name_suffix}.png"
+        )
         plt.savefig(output_path)
         plt.close()
 
@@ -170,7 +176,10 @@ def main():
     model_evaluator.train(X_train, y_train)
     model_evaluator.plot_learning_curve(X_train, y_train)
     model_evaluator.plot_model_complexity(
-        X_train, y_train, "n_estimators", [10, 20, 30, 50, 100]
+        X_train, y_train, "n_estimators", [10, 20, 30, 50, 100], "n_estimators"
+    )
+    model_evaluator.plot_model_complexity(
+        X_train, y_train, "learning_rate", np.logspace(-3, -1, 5), "learning_rate"
     )
 
 

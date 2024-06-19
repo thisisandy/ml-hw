@@ -107,7 +107,7 @@ def visualize_data_distribution(X, y, vectorizer):
     plt.xticks(ticks=[0, 1], labels=["Negative", "Positive"])
 
     plt.tight_layout()
-    plt.savefig("./output/imdb/data_distribution.png", dpi=300)
+    plt.savefig("./hw1/output/imdb/data_distribution.png", dpi=300)
 
 
 if __name__ == "__main__":

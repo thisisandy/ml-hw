@@ -42,7 +42,7 @@ def load_and_prepare_data():
 
 # Model evaluation class
 class SVMModelEvaluator:
-    def __init__(self, model, name, output_dir="./output/im"):
+    def __init__(self, model, name, output_dir="./hw1/output/im"):
         self.model = model
         self.name = name
         self.output_dir = output_dir
@@ -133,7 +133,7 @@ class SVMModelEvaluator:
 
 # Function to plot comparison of kernels
 def plot_kernel_comparison(
-    X_train, y_train, param_range, gamma_range, output_dir="./output/im"
+    X_train, y_train, param_range, gamma_range, output_dir="./hw1/output/im"
 ):
     fig, axes = plt.subplots(3, 1, figsize=(10, 18), dpi=300)
 

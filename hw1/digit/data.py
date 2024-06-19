@@ -90,7 +90,7 @@ def visualize_data_distribution(X, y):
     plt.ylabel("Frequency")
 
     plt.tight_layout()
-    plt.savefig("./output/digit/data_distribution.png", dpi=300)
+    plt.savefig("./hw1/output/digit/data_distribution.png", dpi=300)
 
 
 if __name__ == "__main__":

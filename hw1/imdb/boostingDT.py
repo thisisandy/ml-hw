@@ -31,7 +31,7 @@ sns.set(style="whitegrid")
 
 
 class BoostingModelEvaluator:
-    def __init__(self, model, name, output_dir="./output/im"):
+    def __init__(self, model, name, output_dir="./hw1/output/im"):
         self.model = model
         self.name = name
         self.output_dir = output_dir

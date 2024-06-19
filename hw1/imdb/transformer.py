@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
-from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 from transformers import (
     AdamW,
@@ -14,6 +13,8 @@ from transformers import (
     BertTokenizer,
     get_linear_schedule_with_warmup,
 )
+
+from datasets import load_dataset
 
 
 # Function to set seeds for reproducibility
@@ -152,7 +153,7 @@ class IMDBClassifier(pl.LightningModule):
 
 
 class ErrorRatePlotterCallback(pl.Callback):
-    def __init__(self, smoothing_factor=0.1, output_dir="./output/im"):
+    def __init__(self, smoothing_factor=0.1, output_dir="./hw1/output/im"):
         super().__init__()
         self.train_error_rates = []
         self.val_error_rates = []
@@ -225,7 +226,7 @@ def evaluate_hyperparameters(
     val_texts,
     val_labels,
     tokenizer,
-    output_dir="./output/im",
+    output_dir="./hw1/output/im",
 ):
     results = []
     for value in hyperparameter_values:
@@ -276,7 +277,7 @@ def evaluate_hyperparameters(
 
 
 def plot_hyperparameter_tuning_results(
-    results, hyperparameter_name, output_dir="./output/im"
+    results, hyperparameter_name, output_dir="./hw1/output/im"
 ):
     df = pd.DataFrame(results)
     plt.figure(figsize=(10, 5), dpi=300)
@@ -309,7 +310,7 @@ if __name__ == "__main__":
     batch_sizes = [4, 16, 64, 128]
     learning_rates = [1e-5, 1e-4, 1e-3, 1e-2]
 
-    output_dir = "./output/im"
+    output_dir = "./hw1/output/im"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 

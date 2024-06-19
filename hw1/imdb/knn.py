@@ -42,7 +42,7 @@ def load_and_prepare_data():
 
 # Model evaluation class
 class KNNModelEvaluator:
-    def __init__(self, model, name, output_dir="./output/im"):
+    def __init__(self, model, name, output_dir="./hw1/output/im"):
         self.model = model
         self.name = name
         self.output_dir = output_dir

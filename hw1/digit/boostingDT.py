@@ -22,7 +22,7 @@ set_seed(42)
 
 
 class BoostingModelEvaluator:
-    def __init__(self, model, name, output_dir="./output/digit"):
+    def __init__(self, model, name, output_dir="./hw1/output/digit"):
         self.model = model
         self.name = name
         self.output_dir = output_dir

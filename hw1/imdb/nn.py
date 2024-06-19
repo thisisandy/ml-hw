@@ -126,7 +126,7 @@ class IMDBClassifier(pl.LightningModule):
 
 
 class ErrorRatePlotterCallback(pl.Callback):
-    def __init__(self, smoothing_factor=0.1, output_dir="./output/im"):
+    def __init__(self, smoothing_factor=0.1, output_dir="./hw1/output/im"):
         super().__init__()
         self.train_error_rates = []
         self.val_error_rates = []
@@ -208,7 +208,7 @@ def evaluate_hyperparameters(
     val_texts,
     val_labels,
     input_dim,
-    output_dir="./output/im",
+    output_dir="./hw1/output/im",
 ):
     results = []
     for value in hyperparameter_values:
@@ -254,7 +254,7 @@ def evaluate_hyperparameters(
 
 
 def plot_hyperparameter_tuning_results(
-    results, hyperparameter_name, output_dir="./output/im"
+    results, hyperparameter_name, output_dir="./hw1/output/im"
 ):
     df = pd.DataFrame(results)
     plt.figure(figsize=(10, 5), dpi=300)
@@ -292,7 +292,7 @@ if __name__ == "__main__":
     learning_rates = [0.001, 0.01, 0.1, 0.5]
     dropout_rates = [0.2, 0.4, 0.5, 0.6, 0.8]
 
-    output_dir = "./output/im"
+    output_dir = "./hw1/output/im"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 

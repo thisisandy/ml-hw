@@ -24,7 +24,7 @@ sns.set(style="whitegrid")
 
 
 class SVMModelEvaluator:
-    def __init__(self, model, name, output_dir="./output/digit"):
+    def __init__(self, model, name, output_dir="./hw1/output/digit"):
         self.model = model
         self.name = name
         self.output_dir = output_dir
@@ -129,7 +129,7 @@ def load_and_prepare_data():
 
 
 def plot_kernel_comparison(
-    X_train, y_train, param_range, gamma_range, output_dir="./output/digit"
+    X_train, y_train, param_range, gamma_range, output_dir="./hw1/output/digit"
 ):
     fig, axes = plt.subplots(3, 1, figsize=(10, 18), dpi=300)
 

@@ -1,2 +1,4 @@
 lightning_logs
 checkpoints
+hw2/nq/*
+hw2/one_max/*

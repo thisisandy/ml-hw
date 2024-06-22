@@ -32,7 +32,7 @@ for restarts in restart_list:
         experiment_name="RHC",
         output_directory="./one_max",
         seed=42,
-        iteration_list=2 ** np.arange(12),
+        iteration_list=[2**12],
         max_attempts=10,
         restart_list=[restarts],
     )
@@ -56,7 +56,7 @@ for temperature in temperature_list:
         experiment_name="SA",
         output_directory="./one_max",
         seed=42,
-        iteration_list=2 ** np.arange(12),
+        iteration_list=[2**12],
         max_attempts=10,
         temperature_list=[temperature],
     )
@@ -80,7 +80,7 @@ for pop_size in population_sizes:
         experiment_name="GA",
         output_directory="./one_max",
         seed=42,
-        iteration_list=2 ** np.arange(12),
+        iteration_list=[2**12],
         max_attempts=10,
         population_sizes=[pop_size],
         mutation_rates=[0.1],
@@ -105,7 +105,7 @@ for keep_pct in keep_pct_list:
         experiment_name="MIMIC",
         output_directory="./one_max",
         seed=42,
-        iteration_list=2 ** np.arange(12),
+        iteration_list=[2**12],
         max_attempts=10,
         keep_percent_list=[keep_pct],
         population_sizes=[200],
@@ -202,4 +202,97 @@ plt.ylabel("Time (log ms)")
 plt.xticks(rotation=45, ha="right")
 plt.tight_layout()
 plt.savefig("one_max_times.png")
+plt.show()
+
+
+# %%
+# %%
+# Step 9: Test the impact of varying N on algorithm performance
+N_values = [10, 20, 30, 40, 50]  # Different values of N to test
+N_results = {}  # To store the results for different algorithms and N values
+
+for N in N_values:
+    # Define the OneMax problem for each N
+    fitness = OneMax()
+    problem = DiscreteOpt(length=N, fitness_fn=fitness, maximize=True, max_val=2)
+
+    # Store results for each algorithm at this N
+    results_at_N = {}
+
+    # Randomized Hill Climbing for current N
+    rhc = RHCRunner(
+        problem=problem,
+        experiment_name="RHC",
+        output_directory=f"./one_max/N_{N}",
+        seed=42,
+        iteration_list=[2**12],
+        max_attempts=10,
+        restart_list=[10],
+    )
+    _, curves = rhc.run()
+    results_at_N["RHC"] = curves["Fitness"].max()
+
+    # Simulated Annealing for current N
+    sa = SARunner(
+        problem=problem,
+        experiment_name="SA",
+        output_directory=f"./one_max/N_{N}",
+        seed=42,
+        iteration_list=[2**12],
+        max_attempts=10,
+        temperature_list=[100],
+    )
+    _, curves = sa.run()
+    results_at_N["SA"] = curves["Fitness"].max()
+
+    # Genetic Algorithm for current N
+    ga = GARunner(
+        problem=problem,
+        experiment_name="GA",
+        output_directory=f"./one_max/N_{N}",
+        seed=42,
+        iteration_list=[2**12],
+        max_attempts=10,
+        population_sizes=[200],
+        mutation_rates=[0.1],
+    )
+    _, curves = ga.run()
+    results_at_N["GA"] = curves["Fitness"].max()
+
+    # MIMIC for current N
+    mimic = MIMICRunner(
+        problem=problem,
+        experiment_name="MIMIC",
+        output_directory=f"./one_max/N_{N}",
+        seed=42,
+        iteration_list=[2**12],
+        max_attempts=10,
+        keep_percent_list=[0.5],
+        population_sizes=[200],
+    )
+    _, curves = mimic.run()
+    results_at_N["MIMIC"] = curves["Fitness"].max()
+
+    N_results[N] = results_at_N
+
+
+# %%
+# %%
+# Step 10: Visualization of N Impact on Algorithms
+plt.figure(figsize=(10, 8))
+sns.set_style("whitegrid")
+
+# Consistently use a specific color palette
+colors = sns.color_palette("husl", 4)  # Use 4 distinct colors for the 4 algorithms
+
+for idx, algo in enumerate(["RHC", "SA", "GA", "MIMIC"]):
+    N_fitness = [N_results[N][algo] for N in N_values]
+    plt.plot(N_values, N_fitness, marker="o", label=f"{algo}", color=colors[idx])
+
+plt.title("Impact of Problem Size (N) on Algorithm Performance")
+plt.xlabel("Problem Size (N)")
+plt.ylabel("Best Fitness Achieved")
+plt.legend()
+plt.grid(True)
+plt.savefig("one_max_performance_vs_N.png")
 plt.show()

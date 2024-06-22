@@ -28,7 +28,7 @@ for restarts in restart_list:
         experiment_name="RHC",
         output_directory="./nq",
         seed=42,
-        iteration_list=2 ** np.arange(12),
+        iteration_list=[2**12],
         max_attempts=10,
         restart_list=[restarts],
     )
@@ -50,7 +50,7 @@ for temperature in temperature_list:
         experiment_name="SA",
         output_directory="./nq",
         seed=42,
-        iteration_list=2 ** np.arange(12),
+        iteration_list=[2**12],
         max_attempts=10,
         temperature_list=[temperature],
     )
@@ -72,7 +72,7 @@ for pop_size in population_sizes:
         experiment_name="GA",
         output_directory="./nq",
         seed=42,
-        iteration_list=2 ** np.arange(12),
+        iteration_list=[2**12],
         max_attempts=10,
         population_sizes=[pop_size],
         mutation_rates=[0.1],
@@ -95,7 +95,7 @@ for keep_pct in keep_pct_list:
         experiment_name="MIMIC",
         output_directory="./nq",
         seed=42,
-        iteration_list=2 ** np.arange(12),
+        iteration_list=[2**12],
         max_attempts=10,
         keep_percent_list=[keep_pct],
         population_sizes=[200],
@@ -189,4 +189,90 @@ plt.ylabel("Time (log ms)")
 plt.xticks(rotation=45, ha="right")
 plt.tight_layout()
 plt.savefig("nq_time_comparison.png")
+plt.show()
+
+
+# %%
+# Step 9: Test the impact of different N values on algorithm performance
+N_values = [4, 8, 12, 16]  # Different values of N to test
+overall_results = {}  # To store the results for different algorithms and N values
+
+for N in N_values:
+    # Define the N-Queens problem for each N
+    fitness = Queens()
+    problem = DiscreteOpt(length=N, fitness_fn=fitness, maximize=False, max_val=N)
+
+    # Store results for each algorithm at this N
+    results_at_N = {}
+
+    # Randomized Hill Climbing for current N
+    rhc = RHCRunner(
+        problem=problem,
+        experiment_name="RHC",
+        output_directory=f"./nq_results/N_{N}",
+        seed=42,
+        iteration_list=[2**12],
+        max_attempts=10,
+        restart_list=[10],  # example restart parameter
+    )
+    _, curves = rhc.run()
+    results_at_N["RHC"] = curves["Fitness"].max()
+
+    # Simulated Annealing for current N
+    sa = SARunner(
+        problem=problem,
+        experiment_name="SA",
+        output_directory=f"./nq_results/N_{N}",
+        seed=42,
+        iteration_list=[2**12],
+        max_attempts=10,
+        temperature_list=[100],  # example temperature parameter
+    )
+    _, curves = sa.run()
+    results_at_N["SA"] = curves["Fitness"].max()
+
+    # Genetic Algorithm for current N
+    ga = GARunner(
+        problem=problem,
+        experiment_name="GA",
+        output_directory=f"./nq_results/N_{N}",
+        seed=42,
+        iteration_list=[2**12],
+        max_attempts=10,
+        population_sizes=[200],  # example population size
+        mutation_rates=[0.1],
+    )
+    _, curves = ga.run()
+    results_at_N["GA"] = curves["Fitness"].max()
+
+    # MIMIC for current N
+    mimic = MIMICRunner(
+        problem=problem,
+        experiment_name="MIMIC",
+        output_directory=f"./nq_results/N_{N}",
+        seed=42,
+        iteration_list=[2**12],
+        max_attempts=10,
+        keep_percent_list=[0.5],  # example keep percent
+        population_sizes=[200],
+        early_stopping=True,
+    )
+    _, curves = mimic.run()
+    results_at_N["MIMIC"] = curves["Fitness"].max()
+
+    overall_results[N] = results_at_N
+
+# %%
+# Step 10: Visualization of N impact on algorithms
+plt.figure(figsize=(10, 8))
+for algo in ["RHC", "SA", "GA", "MIMIC"]:
+    fitness_scores = [overall_results[N][algo] for N in N_values]
+    plt.plot(N_values, fitness_scores, marker="o", label=f"{algo}")
+
+plt.title("Performance of Algorithms as N Varies")
+plt.xlabel("Number of Queens (N)")
+plt.ylabel("Best Fitness Achieved")
+plt.legend()
+plt.grid(True)
+plt.savefig("nq_performance_vs_N.png")
 plt.show()

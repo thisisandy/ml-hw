@@ -1,4 +1,7 @@
 # %%
+# %%
+
+# %%
 # %%# Step 1: Setup and imports
 import time
 
@@ -10,6 +13,9 @@ from sklearn.datasets import load_iris
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import learning_curve, train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+
+# %%
+# %%
 
 # %%
 # %%
@@ -31,6 +37,9 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
 )
 
+
+# %%
+# %%
 
 # %%
 # %%
@@ -75,6 +84,9 @@ def train_evaluate_nn(algorithm, **kwargs):
 
 # %%
 # %%
+
+# %%
+# %%
 # Step 4: Define a function to tune hyperparameters
 
 
@@ -94,6 +106,9 @@ def tune_hyperparameters(algorithm, param_name, param_values, **kwargs):
 
 # %%
 # %%
+
+# %%
+# %%
 # Step 5: Perform hyperparameter tuning and plot the results
 
 
@@ -108,7 +123,7 @@ def plot_tuning_results(results, param_name):
 
     fig, axes = plt.subplots(2, 2, figsize=(18, 10))
     sns.set_style("whitegrid")
-    colors = sns.color_palette("husl", len(param_values))
+    colors = sns.color_palette("husl", 4)
 
     axes[0, 0].plot(param_values, accuracies, marker="o", color=colors[0])
     axes[0, 0].set_title(f"Accuracy vs {param_name}")
@@ -131,6 +146,7 @@ def plot_tuning_results(results, param_name):
     axes[1, 1].set_ylabel("Time (seconds)")
 
     plt.tight_layout()
+    plt.savefig(f"nn_{param_name}_tuning.png")
     plt.show()
 
 
@@ -138,34 +154,74 @@ def plot_tuning_results(results, param_name):
 # %%
 # Step 6: Tune and plot for each algorithm and hyperparameter
 
-# Randomized Hill Climbing: max_attempts
-rhc_param_name = "max_attempts"
-rhc_param_values = [10, 50, 100, 200]
+# Randomized Hill Climbing: restarts
+rhc_param_name = "restarts"
+rhc_param_values = np.linspace(0, 20, 20, dtype=int)
 rhc_tuning_results = tune_hyperparameters(
     "random_hill_climb", rhc_param_name, rhc_param_values
 )
 plot_tuning_results(rhc_tuning_results, rhc_param_name)
 
-# Simulated Annealing: schedule (decay rate)
+# Simulated Annealing: schedule (decay rate) with exponential decay
 sa_param_name = "schedule"
 sa_param_values = [
-    ExpDecay(exp_const=0.001),
-    ExpDecay(exp_const=0.01),
-    ExpDecay(exp_const=0.1),
+    ExpDecay(init_temp=1.0, exp_const=i, min_temp=0.001)
+    for i in np.linspace(0.1, 0.9, 20)
 ]
 sa_tuning_results = tune_hyperparameters(
     "simulated_annealing", sa_param_name, sa_param_values
 )
-plot_tuning_results(sa_tuning_results, sa_param_name)
+sa_tuning_results = [
+    (r[0].exp_const, r[1], r[2], r[3], r[4]) for r in sa_tuning_results
+]
+plot_tuning_results(sa_tuning_results, "exp_const")
+
+# Simulated Annealing: schedule (decay rate) with geometric decay
+sa_param_name = "schedule"
+sa_param_values = [
+    ExpDecay(init_temp=i, exp_const=0.1, min_temp=0.001)
+    for i in np.linspace(0.1, 100, 20)
+]
+sa_tuning_results = tune_hyperparameters(
+    "simulated_annealing", sa_param_name, sa_param_values
+)
+sa_tuning_results = [
+    (r[0].init_temp, r[1], r[2], r[3], r[4]) for r in sa_tuning_results
+]
+plot_tuning_results(sa_tuning_results, "init_temp")
+
+# Simulated Annealing: schedule (decay rate) with arithmetic decay
+sa_param_name = "schedule"
+sa_param_values = [
+    ExpDecay(init_temp=1.0, exp_const=0.1, min_temp=i)
+    for i in np.linspace(0.001, 0.1, 20)
+]
+sa_tuning_results = tune_hyperparameters(
+    "simulated_annealing", sa_param_name, sa_param_values
+)
+sa_tuning_results = [(r[0].min_temp, r[1], r[2], r[3], r[4]) for r in sa_tuning_results]
+plot_tuning_results(sa_tuning_results, "min_temp")
+
 
 # Genetic Algorithm: mutation_prob
 ga_param_name = "mutation_prob"
-ga_param_values = [0.01, 0.1, 0.2]
+ga_param_values = np.logspace(-3, 0, 20)
 ga_tuning_results = tune_hyperparameters(
     "genetic_alg", ga_param_name, ga_param_values, pop_size=200
 )
 plot_tuning_results(ga_tuning_results, ga_param_name)
 
+# Genetic Algorithm: pop_size
+ga_param_name = "pop_size"
+ga_param_values = np.linspace(50, 500, 20, dtype=int)
+ga_tuning_results = tune_hyperparameters(
+    "genetic_alg", ga_param_name, ga_param_values, mutation_prob=0.1
+)
+plot_tuning_results(ga_tuning_results, ga_param_name)
+
+
+# %%
+# %%
 
 # %%
 # %%
@@ -173,15 +229,18 @@ plot_tuning_results(ga_tuning_results, ga_param_name)
 results = {}
 
 # Randomized Hill Climbing
-rhc_results = train_evaluate_nn("random_hill_climb", max_attempts=100)
+rhc_results = train_evaluate_nn("random_hill_climb", restarts=1)
 results["RHC"] = rhc_results
 
 # Simulated Annealing
-sa_results = train_evaluate_nn("simulated_annealing", schedule=ExpDecay(exp_const=0.01))
+sa_results = train_evaluate_nn(
+    "simulated_annealing",
+    schedule=ExpDecay(exp_const=0.2, init_temp=0.1, min_temp=0.001),
+)
 results["SA"] = sa_results
 
 # Genetic Algorithm
-ga_results = train_evaluate_nn("genetic_alg", pop_size=200, mutation_prob=0.1)
+ga_results = train_evaluate_nn("genetic_alg", pop_size=380, mutation_prob=10**-3)
 results["GA"] = ga_results
 
 # Standard Backpropagation
@@ -232,9 +291,12 @@ plt.xlabel("Algorithm")
 plt.ylabel("Time (seconds)")
 
 plt.tight_layout()
-plt.savefig("nn_training_results.png")
+plt.savefig("nn_results.png")
 plt.show()
 
+
+# %%
+# %%
 
 # %%
 # %%
@@ -256,6 +318,9 @@ plt.legend()
 plt.savefig("nn_fitness_curve.png")
 plt.show()
 
+
+# %%
+# %%
 
 # %%
 # %%
@@ -362,7 +427,7 @@ def plot_all_curves(algorithms, results):
     axes[1, 1].legend(loc="best")
 
     plt.tight_layout()
-    plt.savefig("learning_curve.png")
+    plt.savefig("nn_learning_curve.png")
     plt.show()
 
 

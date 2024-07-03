@@ -1,8 +1,8 @@
 # %%
-# nn_step5.py
+# nn_cluster.py
 # %%
 import os
-
+import time
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -13,6 +13,7 @@ from sklearn.datasets import load_breast_cancer
 from sklearn.mixture import GaussianMixture
 from sklearn.model_selection import GridSearchCV, learning_curve, train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
 
 sns.set_theme(style="whitegrid")
 os.makedirs("./result", exist_ok=True)
@@ -71,13 +72,39 @@ def fit_and_evaluate(X_train, X_test, y_train, y_test, method_name):
     NeuralNetworkCV = GridSearchCV(
         NeuralNetwork, param_grid, cv=5, n_jobs=-1, verbose=1
     )
+    
+    start_time = time.time()
     NeuralNetworkCV.fit(X_train, y_train)
+    end_time = time.time()
+    
+    training_time = end_time - start_time
+    print(f"Training time ({method_name}): {training_time:.2f} seconds")
     print(f"Best parameters ({method_name}): {NeuralNetworkCV.best_params_}")
 
+    y_train_pred = NeuralNetworkCV.predict(X_train)
+    y_test_pred = NeuralNetworkCV.predict(X_test)
+    
     train_score = NeuralNetworkCV.score(X_train, y_train)
     test_score = NeuralNetworkCV.score(X_test, y_test)
     print(f"Train accuracy ({method_name}): {train_score:.4f}")
     print(f"Test accuracy ({method_name}): {test_score:.4f}")
+
+    precision = precision_score(y_test, y_test_pred, average='weighted')
+    recall = recall_score(y_test, y_test_pred, average='weighted')
+    f1 = f1_score(y_test, y_test_pred, average='weighted')
+    roc_auc = roc_auc_score(y_test, y_test_pred, average='weighted')
+
+    print(f"Precision ({method_name}): {precision:.4f}")
+    print(f"Recall ({method_name}): {recall:.4f}")
+    print(f"F1 Score ({method_name}): {f1:.4f}")
+    print(f"ROC AUC Score ({method_name}): {roc_auc:.4f}")
+
+    cm = confusion_matrix(y_test.argmax(axis=1), y_test_pred.argmax(axis=1))
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+    disp.plot(cmap='viridis')
+    plt.title(f"Confusion Matrix ({method_name})")
+    plt.savefig(f"./result/confusion_matrix_{method_name.lower()}.png")
+    plt.show()
 
     BestNeuralNetwork = NeuralNetworkCV.best_estimator_
     train_sizes, train_scores, test_scores = learning_curve(
@@ -119,27 +146,27 @@ def fit_and_evaluate(X_train, X_test, y_train, y_test, method_name):
     plt.savefig(f"./result/learning_curve_{method_name.lower()}.png")
     plt.show()
 
-    return NeuralNetworkCV.best_estimator_, train_score, test_score
+    return NeuralNetworkCV.best_estimator_, train_score, test_score, training_time, precision, recall, f1, roc_auc
 
 
 # %%
 # Evaluate on original data with cluster labels
-best_nn_kmeans, train_score_kmeans, test_score_kmeans = fit_and_evaluate(
+best_nn_kmeans, train_score_kmeans, test_score_kmeans, training_time_kmeans, precision_kmeans, recall_kmeans, f1_kmeans, roc_auc_kmeans = fit_and_evaluate(
     X_train_kmeans, X_test_kmeans, y_train, y_test, "KMeans Clusters"
 )
 # %%
-best_nn_em, train_score_em, test_score_em = fit_and_evaluate(
+best_nn_em, train_score_em, test_score_em, training_time_em, precision_em, recall_em, f1_em, roc_auc_em = fit_and_evaluate(
     X_train_em, X_test_em, y_train, y_test, "EM Clusters"
 )
 # %%
-best_nn_combined, train_score_combined, test_score_combined = fit_and_evaluate(
+best_nn_combined, train_score_combined, test_score_combined, training_time_combined, precision_combined, recall_combined, f1_combined, roc_auc_combined = fit_and_evaluate(
     X_train_combined, X_test_combined, y_train, y_test, "Combined Clusters"
 )
 
 # %%
 # Compile results into a DataFrame
 results = {
-    "Method": ["Original", "KMeans Clusters", "EM Clusters", "Combined Clusters"],
+    "Method": ["KMeans Clusters", "EM Clusters", "Combined Clusters"],
     "Train Accuracy": [
         train_score_kmeans,
         train_score_em,
@@ -149,6 +176,31 @@ results = {
         test_score_kmeans,
         test_score_em,
         test_score_combined,
+    ],
+    "Training Time (s)": [
+        training_time_kmeans,
+        training_time_em,
+        training_time_combined,
+    ],
+    "Precision": [
+        precision_kmeans,
+        precision_em,
+        precision_combined,
+    ],
+    "Recall": [
+        recall_kmeans,
+        recall_em,
+        recall_combined,
+    ],
+    "F1 Score": [
+        f1_kmeans,
+        f1_em,
+        f1_combined,
+    ],
+    "ROC AUC Score": [
+        roc_auc_kmeans,
+        roc_auc_em,
+        roc_auc_combined,
     ],
 }
 

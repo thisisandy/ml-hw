@@ -2,7 +2,7 @@
 # nn.py
 # %%
 import os
-
+import time
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -13,6 +13,7 @@ from sklearn.decomposition import PCA, FastICA
 from sklearn.model_selection import GridSearchCV, learning_curve, train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.random_projection import GaussianRandomProjection
+from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
 
 sns.set_theme(style="whitegrid")
 os.makedirs("./result", exist_ok=True)
@@ -67,13 +68,39 @@ def fit_and_evaluate(X_train, X_test, y_train, y_test, method_name):
     NeuralNetworkCV = GridSearchCV(
         NeuralNetwork, param_grid, cv=5, n_jobs=-1, verbose=0
     )
+    
+    start_time = time.time()
     NeuralNetworkCV.fit(X_train, y_train)
+    end_time = time.time()
+    
+    training_time = end_time - start_time
+    print(f"Training time ({method_name}): {training_time:.2f} seconds")
     print(f"Best parameters ({method_name}): {NeuralNetworkCV.best_params_}")
 
+    y_train_pred = NeuralNetworkCV.predict(X_train)
+    y_test_pred = NeuralNetworkCV.predict(X_test)
+    
     train_score = NeuralNetworkCV.score(X_train, y_train)
     test_score = NeuralNetworkCV.score(X_test, y_test)
     print(f"Train accuracy ({method_name}): {train_score:.4f}")
     print(f"Test accuracy ({method_name}): {test_score:.4f}")
+
+    precision = precision_score(y_test, y_test_pred, average='weighted')
+    recall = recall_score(y_test, y_test_pred, average='weighted')
+    f1 = f1_score(y_test, y_test_pred, average='weighted')
+    roc_auc = roc_auc_score(y_test, y_test_pred, average='weighted')
+
+    print(f"Precision ({method_name}): {precision:.4f}")
+    print(f"Recall ({method_name}): {recall:.4f}")
+    print(f"F1 Score ({method_name}): {f1:.4f}")
+    print(f"ROC AUC Score ({method_name}): {roc_auc:.4f}")
+
+    cm = confusion_matrix(y_test.argmax(axis=1), y_test_pred.argmax(axis=1))
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+    disp.plot(cmap='viridis')
+    plt.title(f"Confusion Matrix ({method_name})")
+    plt.savefig(f"./result/confusion_matrix_{method_name.lower()}.png")
+    plt.show()
 
     BestNeuralNetwork = NeuralNetworkCV.best_estimator_
     train_sizes, train_scores, test_scores = learning_curve(
@@ -115,27 +142,27 @@ def fit_and_evaluate(X_train, X_test, y_train, y_test, method_name):
     plt.savefig(f"./result/learning_curve_{method_name.lower()}.png")
     plt.show()
 
-    return NeuralNetworkCV.best_estimator_, train_score, test_score
+    return NeuralNetworkCV.best_estimator_, train_score, test_score, training_time, precision, recall, f1, roc_auc
 
 
 # %%
 # Evaluate on original data
-best_nn_original, train_score_original, test_score_original = fit_and_evaluate(
+best_nn_original, train_score_original, test_score_original, training_time_original, precision_original, recall_original, f1_original, roc_auc_original = fit_and_evaluate(
     X_train, X_test, y_train, y_test, "Original"
 )
 
 # Evaluate on PCA data
-best_nn_pca, train_score_pca, test_score_pca = fit_and_evaluate(
+best_nn_pca, train_score_pca, test_score_pca, training_time_pca, precision_pca, recall_pca, f1_pca, roc_auc_pca = fit_and_evaluate(
     X_train_pca, X_test_pca, y_train, y_test, "PCA"
 )
 
 # Evaluate on ICA data
-best_nn_ica, train_score_ica, test_score_ica = fit_and_evaluate(
+best_nn_ica, train_score_ica, test_score_ica, training_time_ica, precision_ica, recall_ica, f1_ica, roc_auc_ica = fit_and_evaluate(
     X_train_ica, X_test_ica, y_train, y_test, "ICA"
 )
 
 # Evaluate on RP data
-best_nn_rp, train_score_rp, test_score_rp = fit_and_evaluate(
+best_nn_rp, train_score_rp, test_score_rp, training_time_rp, precision_rp, recall_rp, f1_rp, roc_auc_rp = fit_and_evaluate(
     X_train_rp, X_test_rp, y_train, y_test, "RP"
 )
 
@@ -154,6 +181,36 @@ results = {
         test_score_pca,
         test_score_ica,
         test_score_rp,
+    ],
+    "Training Time (s)": [
+        training_time_original,
+        training_time_pca,
+        training_time_ica,
+        training_time_rp,
+    ],
+    "Precision": [
+        precision_original,
+        precision_pca,
+        precision_ica,
+        precision_rp,
+    ],
+    "Recall": [
+        recall_original,
+        recall_pca,
+        recall_ica,
+        recall_rp,
+    ],
+    "F1 Score": [
+        f1_original,
+        f1_pca,
+        f1_ica,
+        f1_rp,
+    ],
+    "ROC AUC Score": [
+        roc_auc_original,
+        roc_auc_pca,
+        roc_auc_ica,
+        roc_auc_rp,
     ],
 }
 

@@ -1,8 +1,9 @@
 name: ml
 channels:
-  - conda-forge
   - defaults
+  - conda-forge
 dependencies:
+  - pip
   - anyio=4.4.0=pyhd8ed1ab_0
   - appnope=0.1.4=pyhd8ed1ab_0
   - argon2-cffi=23.1.0=pyhd8ed1ab_0

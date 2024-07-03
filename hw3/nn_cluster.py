@@ -68,7 +68,9 @@ param_grid = {
 
 
 def fit_and_evaluate(X_train, X_test, y_train, y_test, method_name):
-    NeuralNetworkCV = GridSearchCV(NeuralNetwork, param_grid, cv=5, n_jobs=1, verbose=1)
+    NeuralNetworkCV = GridSearchCV(
+        NeuralNetwork, param_grid, cv=5, n_jobs=-1, verbose=1
+    )
     NeuralNetworkCV.fit(X_train, y_train)
     print(f"Best parameters ({method_name}): {NeuralNetworkCV.best_params_}")
 

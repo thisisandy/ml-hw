@@ -141,13 +141,11 @@ best_nn_combined, train_score_combined, test_score_combined = fit_and_evaluate(
 results = {
     "Method": ["Original", "KMeans Clusters", "EM Clusters", "Combined Clusters"],
     "Train Accuracy": [
-        train_score_original,
         train_score_kmeans,
         train_score_em,
         train_score_combined,
     ],
     "Test Accuracy": [
-        test_score_original,
         test_score_kmeans,
         test_score_em,
         test_score_combined,

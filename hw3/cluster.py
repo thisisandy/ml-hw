@@ -1,16 +1,18 @@
 # %%
-# cluster.py
-# %%
 import os
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.cluster import KMeans
 from sklearn.datasets import fetch_openml, load_breast_cancer
 from sklearn.decomposition import PCA, FastICA
 from sklearn.manifold import TSNE
-from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score
+from sklearn.metrics import (
+    adjusted_rand_score,
+    normalized_mutual_info_score,
+)
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler
 from sklearn.random_projection import GaussianRandomProjection
@@ -18,7 +20,6 @@ from sklearn.random_projection import GaussianRandomProjection
 sns.set_theme(style="whitegrid")
 os.makedirs("./result", exist_ok=True)
 
-# %%
 # Load the Yeast dataset
 yeast_data = fetch_openml(data_id=181, as_frame=True)
 yeast_df = yeast_data.frame
@@ -26,14 +27,16 @@ yeast_df["target"] = yeast_data.target
 
 # Identify categorical columns
 categorical_columns = yeast_df.select_dtypes(include=["category"]).columns
+non_categorical_columns = yeast_df.select_dtypes(exclude=["category"]).columns
 
 # One-hot encode categorical columns
 yeast_features = pd.get_dummies(yeast_df, columns=categorical_columns, drop_first=True)
+# join the non-categorical columns
+yeast_features = pd.concat([yeast_features, yeast_df[non_categorical_columns]], axis=1)
 
 # Separate features and target
 yeast_target = yeast_df["target"]
 
-# %%
 # Load the Breast Cancer dataset (keeping this for comparison)
 bc_data = load_breast_cancer()
 bc_df = pd.DataFrame(bc_data.data, columns=bc_data.feature_names)
@@ -66,7 +69,6 @@ def tsne_visualization_2d(data, labels, title, filename):
     plt.show()
 
 
-# %%
 def apply_clustering(data, n_clusters):
     scaler = StandardScaler()
     scaled_data = scaler.fit_transform(data)
@@ -80,7 +82,13 @@ def apply_clustering(data, n_clusters):
     return kmeans_labels, em_labels
 
 
-# %%
+# Function to compute reconstruction error
+def compute_reconstruction_error(original, reduced, inverse_transformer):
+    reconstructed = inverse_transformer.inverse_transform(reduced)
+    error = np.mean((original - reconstructed) ** 2)
+    return error
+
+
 # Apply clustering to Yeast dataset
 yeast_kmeans_labels, yeast_em_labels = apply_clustering(yeast_features, n_clusters=10)
 
@@ -89,7 +97,6 @@ bc_kmeans_labels, bc_em_labels = apply_clustering(
     bc_df[bc_data.feature_names], n_clusters=2
 )
 
-# %%
 # Visualizations for Yeast dataset
 tsne_visualization_2d(
     yeast_features,
@@ -130,27 +137,7 @@ tsne_visualization_2d(
     "bc_em_clustering.png",
 )
 
-
-# %%
-def evaluate_clustering_performance(true_labels, pred_labels):
-    return adjusted_rand_score(true_labels, pred_labels), normalized_mutual_info_score(
-        true_labels, pred_labels
-    )
-
-
-yeast_kmeans_ari, yeast_kmeans_nmi = evaluate_clustering_performance(
-    yeast_df["target"], yeast_kmeans_labels
-)
-yeast_em_ari, yeast_em_nmi = evaluate_clustering_performance(
-    yeast_df["target"], yeast_em_labels
-)
-
-bc_kmeans_ari, bc_kmeans_nmi = evaluate_clustering_performance(
-    bc_df["target"], bc_kmeans_labels
-)
-bc_em_ari, bc_em_nmi = evaluate_clustering_performance(bc_df["target"], bc_em_labels)
-
-# %%
+# Dimensionality Reduction
 pca = PCA(n_components=2)
 yeast_pca = pca.fit_transform(yeast_features)
 bc_pca = pca.fit_transform(bc_df[bc_data.feature_names])
@@ -163,6 +150,7 @@ rp = GaussianRandomProjection(n_components=2, random_state=42)
 yeast_rp = rp.fit_transform(yeast_features)
 bc_rp = rp.fit_transform(bc_df[bc_data.feature_names])
 
+# Clustering on reduced data
 yeast_pca_kmeans_labels, yeast_pca_em_labels = apply_clustering(
     yeast_pca, n_clusters=10
 )
@@ -175,7 +163,7 @@ bc_pca_kmeans_labels, bc_pca_em_labels = apply_clustering(bc_pca, n_clusters=2)
 bc_ica_kmeans_labels, bc_ica_em_labels = apply_clustering(bc_ica, n_clusters=2)
 bc_rp_kmeans_labels, bc_rp_em_labels = apply_clustering(bc_rp, n_clusters=2)
 
-# %%
+# Visualizations for PCA, ICA, RP on Yeast dataset
 tsne_visualization_2d(
     yeast_pca, yeast_df["target"], "Yeast - PCA (2D)", "yeast_pca.png"
 )
@@ -222,6 +210,7 @@ tsne_visualization_2d(
     "yeast_rp_em_clustering.png",
 )
 
+# Visualizations for PCA, ICA, RP on Breast Cancer dataset
 tsne_visualization_2d(bc_pca, bc_df["target"], "Breast Cancer - PCA (2D)", "bc_pca.png")
 tsne_visualization_2d(
     bc_pca,
@@ -264,7 +253,28 @@ tsne_visualization_2d(
     "bc_rp_em_clustering.png",
 )
 
+
 # %%
+def evaluate_clustering_performance(true_labels, pred_labels):
+    return adjusted_rand_score(true_labels, pred_labels), normalized_mutual_info_score(
+        true_labels, pred_labels
+    )
+
+
+yeast_kmeans_ari, yeast_kmeans_nmi = evaluate_clustering_performance(
+    yeast_df["target"], yeast_kmeans_labels
+)
+yeast_em_ari, yeast_em_nmi = evaluate_clustering_performance(
+    yeast_df["target"], yeast_em_labels
+)
+
+bc_kmeans_ari, bc_kmeans_nmi = evaluate_clustering_performance(
+    bc_df["target"], bc_kmeans_labels
+)
+bc_em_ari, bc_em_nmi = evaluate_clustering_performance(bc_df["target"], bc_em_labels)
+
+# %%
+# Evaluate clustering performance on reduced data
 yeast_pca_kmeans_ari, yeast_pca_kmeans_nmi = evaluate_clustering_performance(
     yeast_df["target"], yeast_pca_kmeans_labels
 )
@@ -303,7 +313,8 @@ bc_rp_em_ari, bc_rp_em_nmi = evaluate_clustering_performance(
     bc_df["target"], bc_rp_em_labels
 )
 
-# %%
+
+# Create results DataFrame
 results_df = pd.DataFrame(
     {
         "Dataset": ["Yeast"] * 8 + ["Breast Cancer"] * 8,
@@ -374,4 +385,13 @@ results_df.style.apply(highlight_max, subset=["ARI", "NMI"], axis=0).set_table_s
     axis="index"
 )
 
+print(results_df)
 # %%
+
+# Plot kurtosis
+plt.figure(figsize=(12, 8))
+sns.boxplot(x="Method", y="Kurtosis", hue="Dataset", data=metrics_df)
+plt.title("Kurtosis Comparison")
+plt.xticks(rotation=45)
+plt.savefig("./result/kurtosis_comparison.png")
+plt.show()

@@ -1,19 +1,27 @@
 # %%
-# nn_cluster.py
+# nn.py
 # %%
 import os
 import time
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn import neural_network
-from sklearn.cluster import KMeans
 from sklearn.datasets import load_breast_cancer
-from sklearn.mixture import GaussianMixture
+from sklearn.decomposition import PCA, FastICA
+from sklearn.metrics import (
+    ConfusionMatrixDisplay,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from sklearn.model_selection import GridSearchCV, learning_curve, train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.metrics import precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
+from sklearn.random_projection import GaussianRandomProjection
 
 sns.set_theme(style="whitegrid")
 os.makedirs("./result", exist_ok=True)
@@ -38,22 +46,18 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 # %%
-# Apply clustering algorithms
-kmeans = KMeans(n_clusters=2, random_state=42)
-kmeans_labels_train = kmeans.fit_predict(X_train)
-kmeans_labels_test = kmeans.predict(X_test)
+# Apply dimensionality reduction techniques
+pca = PCA(n_components=2)
+X_train_pca = pca.fit_transform(X_train)
+X_test_pca = pca.transform(X_test)
 
-em = GaussianMixture(n_components=2, random_state=42)
-em_labels_train = em.fit_predict(X_train)
-em_labels_test = em.predict(X_test)
+ica = FastICA(n_components=2, random_state=42)
+X_train_ica = ica.fit_transform(X_train)
+X_test_ica = ica.transform(X_test)
 
-# Add cluster labels as new features
-X_train_kmeans = np.column_stack((X_train, kmeans_labels_train))
-X_test_kmeans = np.column_stack((X_test, kmeans_labels_test))
-X_train_em = np.column_stack((X_train, em_labels_train))
-X_test_em = np.column_stack((X_test, em_labels_test))
-X_train_combined = np.column_stack((X_train, kmeans_labels_train, em_labels_train))
-X_test_combined = np.column_stack((X_test, kmeans_labels_test, em_labels_test))
+rp = GaussianRandomProjection(n_components=2, random_state=42)
+X_train_rp = rp.fit_transform(X_train)
+X_test_rp = rp.transform(X_test)
 
 # %%
 # Train a neural network classifier
@@ -70,29 +74,29 @@ param_grid = {
 
 def fit_and_evaluate(X_train, X_test, y_train, y_test, method_name):
     NeuralNetworkCV = GridSearchCV(
-        NeuralNetwork, param_grid, cv=5, n_jobs=-1, verbose=1
+        NeuralNetwork, param_grid, cv=5, n_jobs=-1, verbose=0
     )
-    
+
     start_time = time.time()
     NeuralNetworkCV.fit(X_train, y_train)
     end_time = time.time()
-    
+
     training_time = end_time - start_time
     print(f"Training time ({method_name}): {training_time:.2f} seconds")
     print(f"Best parameters ({method_name}): {NeuralNetworkCV.best_params_}")
 
     y_train_pred = NeuralNetworkCV.predict(X_train)
     y_test_pred = NeuralNetworkCV.predict(X_test)
-    
+
     train_score = NeuralNetworkCV.score(X_train, y_train)
     test_score = NeuralNetworkCV.score(X_test, y_test)
     print(f"Train accuracy ({method_name}): {train_score:.4f}")
     print(f"Test accuracy ({method_name}): {test_score:.4f}")
 
-    precision = precision_score(y_test, y_test_pred, average='weighted')
-    recall = recall_score(y_test, y_test_pred, average='weighted')
-    f1 = f1_score(y_test, y_test_pred, average='weighted')
-    roc_auc = roc_auc_score(y_test, y_test_pred, average='weighted')
+    precision = precision_score(y_test, y_test_pred, average="weighted")
+    recall = recall_score(y_test, y_test_pred, average="weighted")
+    f1 = f1_score(y_test, y_test_pred, average="weighted")
+    roc_auc = roc_auc_score(y_test, y_test_pred, average="weighted")
 
     print(f"Precision ({method_name}): {precision:.4f}")
     print(f"Recall ({method_name}): {recall:.4f}")
@@ -101,7 +105,7 @@ def fit_and_evaluate(X_train, X_test, y_train, y_test, method_name):
 
     cm = confusion_matrix(y_test.argmax(axis=1), y_test_pred.argmax(axis=1))
     disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-    disp.plot(cmap='viridis')
+    disp.plot(cmap="viridis")
     plt.title(f"Confusion Matrix ({method_name})")
     plt.savefig(f"./result/confusion_matrix_{method_name.lower()}.png")
     plt.show()
@@ -120,97 +124,276 @@ def fit_and_evaluate(X_train, X_test, y_train, y_test, method_name):
     test_scores_mean = np.mean(test_scores, axis=1)
     test_scores_std = np.std(test_scores, axis=1)
 
-    plt.figure(figsize=(12, 8))
-    plt.fill_between(
+    return (
         train_sizes,
-        train_scores_mean - train_scores_std,
-        train_scores_mean + train_scores_std,
-        alpha=0.1,
-        color="b",
+        train_scores_mean,
+        train_scores_std,
+        test_scores_mean,
+        test_scores_std,
+        NeuralNetworkCV.best_estimator_,
+        train_score,
+        test_score,
+        training_time,
+        precision,
+        recall,
+        f1,
+        roc_auc,
     )
-    plt.fill_between(
-        train_sizes,
-        test_scores_mean - test_scores_std,
-        test_scores_mean + test_scores_std,
-        alpha=0.1,
-        color="r",
-    )
-    plt.plot(train_sizes, train_scores_mean, "o-", color="b", label="Training score")
-    plt.plot(
-        train_sizes, test_scores_mean, "o-", color="r", label="Cross-validation score"
-    )
-    plt.title(f"Learning Curve ({method_name})")
-    plt.xlabel("Training examples")
-    plt.ylabel("Score")
-    plt.legend(loc="best")
-    plt.savefig(f"./result/learning_curve_{method_name.lower()}.png")
-    plt.show()
-
-    return NeuralNetworkCV.best_estimator_, train_score, test_score, training_time, precision, recall, f1, roc_auc
 
 
 # %%
-# Evaluate on original data with cluster labels
-best_nn_kmeans, train_score_kmeans, test_score_kmeans, training_time_kmeans, precision_kmeans, recall_kmeans, f1_kmeans, roc_auc_kmeans = fit_and_evaluate(
-    X_train_kmeans, X_test_kmeans, y_train, y_test, "KMeans Clusters"
-)
+# Evaluate on original data
+(
+    train_sizes_original,
+    train_scores_mean_original,
+    train_scores_std_original,
+    test_scores_mean_original,
+    test_scores_std_original,
+    best_nn_original,
+    train_score_original,
+    test_score_original,
+    training_time_original,
+    precision_original,
+    recall_original,
+    f1_original,
+    roc_auc_original,
+) = fit_and_evaluate(X_train, X_test, y_train, y_test, "Original")
+
+# Evaluate on PCA data
+(
+    train_sizes_pca,
+    train_scores_mean_pca,
+    train_scores_std_pca,
+    test_scores_mean_pca,
+    test_scores_std_pca,
+    best_nn_pca,
+    train_score_pca,
+    test_score_pca,
+    training_time_pca,
+    precision_pca,
+    recall_pca,
+    f1_pca,
+    roc_auc_pca,
+) = fit_and_evaluate(X_train_pca, X_test_pca, y_train, y_test, "PCA")
+
+# Evaluate on ICA data
+(
+    train_sizes_ica,
+    train_scores_mean_ica,
+    train_scores_std_ica,
+    test_scores_mean_ica,
+    test_scores_std_ica,
+    best_nn_ica,
+    train_score_ica,
+    test_score_ica,
+    training_time_ica,
+    precision_ica,
+    recall_ica,
+    f1_ica,
+    roc_auc_ica,
+) = fit_and_evaluate(X_train_ica, X_test_ica, y_train, y_test, "ICA")
+
+# Evaluate on RP data
+(
+    train_sizes_rp,
+    train_scores_mean_rp,
+    train_scores_std_rp,
+    test_scores_mean_rp,
+    test_scores_std_rp,
+    best_nn_rp,
+    train_score_rp,
+    test_score_rp,
+    training_time_rp,
+    precision_rp,
+    recall_rp,
+    f1_rp,
+    roc_auc_rp,
+) = fit_and_evaluate(X_train_rp, X_test_rp, y_train, y_test, "RP")
+
 # %%
-best_nn_em, train_score_em, test_score_em, training_time_em, precision_em, recall_em, f1_em, roc_auc_em = fit_and_evaluate(
-    X_train_em, X_test_em, y_train, y_test, "EM Clusters"
+# Combine learning curve plots
+plt.figure(figsize=(12, 8))
+
+# Original data learning curve
+plt.fill_between(
+    train_sizes_original,
+    train_scores_mean_original - train_scores_std_original,
+    train_scores_mean_original + train_scores_std_original,
+    alpha=0.1,
+    color="blue",
 )
-# %%
-best_nn_combined, train_score_combined, test_score_combined, training_time_combined, precision_combined, recall_combined, f1_combined, roc_auc_combined = fit_and_evaluate(
-    X_train_combined, X_test_combined, y_train, y_test, "Combined Clusters"
+plt.fill_between(
+    train_sizes_original,
+    test_scores_mean_original - test_scores_std_original,
+    test_scores_mean_original + test_scores_std_original,
+    alpha=0.1,
+    color="red",
 )
+plt.plot(
+    train_sizes_original,
+    train_scores_mean_original,
+    "o-",
+    color="blue",
+    label="Training score (Original)",
+)
+plt.plot(
+    train_sizes_original,
+    test_scores_mean_original,
+    "o-",
+    color="red",
+    label="Cross-validation score (Original)",
+)
+
+# PCA data learning curve
+plt.fill_between(
+    train_sizes_pca,
+    train_scores_mean_pca - train_scores_std_pca,
+    train_scores_mean_pca + train_scores_std_pca,
+    alpha=0.1,
+    color="green",
+)
+plt.fill_between(
+    train_sizes_pca,
+    test_scores_mean_pca - test_scores_std_pca,
+    test_scores_mean_pca + test_scores_std_pca,
+    alpha=0.1,
+    color="orange",
+)
+plt.plot(
+    train_sizes_pca,
+    train_scores_mean_pca,
+    "o-",
+    color="green",
+    label="Training score (PCA)",
+)
+plt.plot(
+    train_sizes_pca,
+    test_scores_mean_pca,
+    "o-",
+    color="orange",
+    label="Cross-validation score (PCA)",
+)
+
+# ICA data learning curve
+plt.fill_between(
+    train_sizes_ica,
+    train_scores_mean_ica - train_scores_std_ica,
+    train_scores_mean_ica + train_scores_std_ica,
+    alpha=0.1,
+    color="purple",
+)
+plt.fill_between(
+    train_sizes_ica,
+    test_scores_mean_ica - test_scores_std_ica,
+    test_scores_mean_ica + test_scores_std_ica,
+    alpha=0.1,
+    color="brown",
+)
+plt.plot(
+    train_sizes_ica,
+    train_scores_mean_ica,
+    "o-",
+    color="purple",
+    label="Training score (ICA)",
+)
+plt.plot(
+    train_sizes_ica,
+    test_scores_mean_ica,
+    "o-",
+    color="brown",
+    label="Cross-validation score (ICA)",
+)
+
+# RP data learning curve
+plt.fill_between(
+    train_sizes_rp,
+    train_scores_mean_rp - train_scores_std_rp,
+    train_scores_mean_rp + train_scores_std_rp,
+    alpha=0.1,
+    color="cyan",
+)
+plt.fill_between(
+    train_sizes_rp,
+    test_scores_mean_rp - test_scores_std_rp,
+    test_scores_mean_rp + test_scores_std_rp,
+    alpha=0.1,
+    color="magenta",
+)
+plt.plot(
+    train_sizes_rp,
+    train_scores_mean_rp,
+    "o-",
+    color="cyan",
+    label="Training score (RP)",
+)
+plt.plot(
+    train_sizes_rp,
+    test_scores_mean_rp,
+    "o-",
+    color="magenta",
+    label="Cross-validation score (RP)",
+)
+
+plt.title("Combined Learning Curves")
+plt.xlabel("Training examples")
+plt.ylabel("Score")
+plt.legend(loc="best")
+plt.savefig("./result/combined_learning_curve.png")
+plt.show()
 
 # %%
 # Compile results into a DataFrame
 results = {
-    "Method": ["KMeans Clusters", "EM Clusters", "Combined Clusters"],
+    "Method": ["Original", "PCA", "ICA", "RP"],
     "Train Accuracy": [
-        train_score_kmeans,
-        train_score_em,
-        train_score_combined,
+        train_score_original,
+        train_score_pca,
+        train_score_ica,
+        train_score_rp,
     ],
     "Test Accuracy": [
-        test_score_kmeans,
-        test_score_em,
-        test_score_combined,
+        test_score_original,
+        test_score_pca,
+        test_score_ica,
+        test_score_rp,
     ],
     "Training Time (s)": [
-        training_time_kmeans,
-        training_time_em,
-        training_time_combined,
+        training_time_original,
+        training_time_pca,
+        training_time_ica,
+        training_time_rp,
     ],
     "Precision": [
-        precision_kmeans,
-        precision_em,
-        precision_combined,
+        precision_original,
+        precision_pca,
+        precision_ica,
+        precision_rp,
     ],
     "Recall": [
-        recall_kmeans,
-        recall_em,
-        recall_combined,
+        recall_original,
+        recall_pca,
+        recall_ica,
+        recall_rp,
     ],
     "F1 Score": [
-        f1_kmeans,
-        f1_em,
-        f1_combined,
+        f1_original,
+        f1_pca,
+        f1_ica,
+        f1_rp,
     ],
     "ROC AUC Score": [
-        roc_auc_kmeans,
-        roc_auc_em,
-        roc_auc_combined,
+        roc_auc_original,
+        roc_auc_pca,
+        roc_auc_ica,
+        roc_auc_rp,
     ],
 }
 
 results_df = pd.DataFrame(results)
 print(results_df)
 
-results_df.to_excel(
-    "./result/nn_performance_with_clusters_comparison.xlsx", index=False
-)
+results_df.to_excel("./result/nn_performance_comparison.xlsx", index=False)
 
-print("Results saved to './result/nn_performance_with_clusters_comparison.xlsx'")
+print("Results saved to './result/nn_performance_comparison.xlsx'")
 
 # %%

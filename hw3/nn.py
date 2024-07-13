@@ -45,16 +45,16 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 # %%
-# Apply dimensionality reduction techniques
-pca = PCA(n_components=2)
+# Apply dimensionality reduction techniques with the specified number of components
+pca = PCA(n_components=10)
 X_train_pca = pca.fit_transform(X_train)
 X_test_pca = pca.transform(X_test)
 
-ica = FastICA(n_components=2, random_state=42)
+ica = FastICA(n_components=28, random_state=42)
 X_train_ica = ica.fit_transform(X_train)
 X_test_ica = ica.transform(X_test)
 
-rp = GaussianRandomProjection(n_components=2, random_state=42)
+rp = GaussianRandomProjection(n_components=29, random_state=42)
 X_train_rp = rp.fit_transform(X_train)
 X_test_rp = rp.transform(X_test)
 
@@ -84,7 +84,7 @@ def fit_and_evaluate(X_train, X_test, y_train, y_test, method_name):
     print(f"Training time ({method_name}): {training_time:.2f} seconds")
     print(f"Best parameters ({method_name}): {NeuralNetworkCV.best_params_}")
 
-    y_train_pred = NeuralNetworkCV.predict(X_train)
+    NeuralNetworkCV.predict(X_train)
     y_test_pred = NeuralNetworkCV.predict(X_test)
 
     train_score = NeuralNetworkCV.score(X_train, y_train)

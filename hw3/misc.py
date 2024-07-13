@@ -1,4 +1,5 @@
 # %%
+
 import numpy as np
 import pandas as pd
 from sklearn.datasets import fetch_openml, load_breast_cancer
@@ -8,17 +9,22 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 # %%
+
 # Load and standardize the dataset
 bc_data = load_breast_cancer()
 bc_X = bc_data.data
 scaler = StandardScaler()
 bc_X_standardized = scaler.fit_transform(bc_X)
+
 # %%
+
 # Load the Yeast dataset
 yeast_data = fetch_openml(data_id=181, as_frame=True)
 yeast_df = yeast_data.frame
 yeast_df["target"] = yeast_data.target
+
 # %%
+
 # Identify categorical columns
 categorical_columns = yeast_df.select_dtypes(include=["category"]).columns
 non_categorical_columns = yeast_df.select_dtypes(exclude=["category"]).columns
@@ -29,11 +35,15 @@ yeast_features = pd.get_dummies(yeast_df, columns=categorical_columns, drop_firs
 yeast_features = pd.concat([yeast_features, yeast_df[non_categorical_columns]], axis=1)
 
 yeast_X_standardized = scaler.fit_transform(yeast_features)
+
 # %%
+
 # Print the shape of the datasets
 print(f"Yeast Dataset Shape: {yeast_X_standardized.shape}")
 print(f"Breast Cancer Dataset Shape: {bc_X_standardized.shape}")
+
 # %%
+
 # Compute and print the rank of the datasets
 yeast_rank = np.linalg.matrix_rank(yeast_X_standardized)
 bc_rank = np.linalg.matrix_rank(bc_X_standardized)
@@ -42,17 +52,53 @@ print(f"Rank of Breast Cancer Dataset: {bc_rank}")
 
 
 # %%
+
+
 # Compute number of components to capture 95% variance for PCA
 def pca_components_for_variance(data, variance_threshold=0.95):
     data = StandardScaler().fit_transform(data)
     pca = PCA().fit(data)
     cumulative_variance = np.cumsum(pca.explained_variance_ratio_)
     num_components = np.argmax(cumulative_variance >= variance_threshold) + 1
-    return num_components
+
+    return num_components, cumulative_variance
 
 
-yeast_pca_components = pca_components_for_variance(yeast_X_standardized)
-bc_pca_components = pca_components_for_variance(bc_X_standardized)
+yeast_pca_components, yeast_cumulative_variance = pca_components_for_variance(
+    yeast_X_standardized
+)
+bc_pca_components, bc_cumulative_variance = pca_components_for_variance(
+    bc_X_standardized
+)
+
+# Plot the cumulative variance with elegant style
+from seaborn import set_palette, set_theme
+
+# use  palette="viridis",
+# use seaborn to plot
+set_theme(style="whitegrid")
+set_palette("viridis", color_codes=True)
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(10, 6), dpi=300)
+plt.plot(yeast_cumulative_variance, label="Yeast Dataset", color="b")
+plt.plot(bc_cumulative_variance, label="Breast Cancer Dataset", color="g")
+plt.xlabel("Number of Components")
+plt.ylabel("Cumulative Variance")
+plt.title("Cumulative Variance vs Number of Components")
+plt.axvline(
+    yeast_pca_components, color="r", linestyle="--", label="Yeast Dataset 95% Variance"
+)
+plt.axvline(
+    bc_pca_components,
+    color="r",
+    linestyle="--",
+    label="Breast Cancer Dataset 95% Variance",
+)
+plt.legend()
+plt.show()
+plt.savefig("cumulative_variance.png")
+
 
 print(
     f"Number of PCA components to capture 95% variance for Yeast dataset: {yeast_pca_components}"
@@ -63,6 +109,8 @@ print(
 
 
 # %%
+
+
 # Compute number of components that have lowest reconstruction error for ICA
 def ica_components(data):
     data_scaled = StandardScaler().fit_transform(data)
@@ -84,7 +132,8 @@ bc_ica_components = ica_components(bc_X_standardized)
 
 print(f"Number of ICA components for Yeast dataset: {yeast_ica_components}")
 print(f"Number of ICA components for Breast Cancer dataset: {bc_ica_components}")
-# %%
+
+## %%
 
 
 # Compute reconstruction error for PCA, ICA, and Random Projection
@@ -108,7 +157,7 @@ def compute_reconstruction_error(method, data, n_components):
     return error
 
 
-# %%
+## %%
 
 yeast_pca_reconstruction_error = compute_reconstruction_error(
     "PCA", yeast_X_standardized, yeast_pca_components

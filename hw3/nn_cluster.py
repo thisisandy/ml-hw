@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn import neural_network
+from sklearn.cluster import KMeans
 from sklearn.datasets import load_breast_cancer
-from sklearn.decomposition import PCA, FastICA
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
     confusion_matrix,
@@ -19,9 +19,9 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
+from sklearn.mixture import GaussianMixture
 from sklearn.model_selection import GridSearchCV, learning_curve, train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.random_projection import GaussianRandomProjection
 
 sns.set_theme(style="whitegrid")
 os.makedirs("./result", exist_ok=True)
@@ -46,18 +46,21 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 # %%
-# Apply dimensionality reduction techniques
-pca = PCA(n_components=2)
-X_train_pca = pca.fit_transform(X_train)
-X_test_pca = pca.transform(X_test)
+# Apply clustering techniques
+kmeans = KMeans(n_clusters=2, random_state=42)
+X_train_kmeans = kmeans.fit_predict(X_train).reshape(-1, 1)
+X_test_kmeans = kmeans.predict(X_test).reshape(-1, 1)
 
-ica = FastICA(n_components=2, random_state=42)
-X_train_ica = ica.fit_transform(X_train)
-X_test_ica = ica.transform(X_test)
+em = GaussianMixture(n_components=2, random_state=42)
+X_train_em = em.fit_predict(X_train).reshape(-1, 1)
+X_test_em = em.predict(X_test).reshape(-1, 1)
 
-rp = GaussianRandomProjection(n_components=2, random_state=42)
-X_train_rp = rp.fit_transform(X_train)
-X_test_rp = rp.transform(X_test)
+# Append cluster labels to the original features
+X_train_kmeans = np.hstack((X_train, X_train_kmeans))
+X_test_kmeans = np.hstack((X_test, X_test_kmeans))
+
+X_train_em = np.hstack((X_train, X_train_em))
+X_test_em = np.hstack((X_test, X_test_em))
 
 # %%
 # Train a neural network classifier
@@ -85,7 +88,7 @@ def fit_and_evaluate(X_train, X_test, y_train, y_test, method_name):
     print(f"Training time ({method_name}): {training_time:.2f} seconds")
     print(f"Best parameters ({method_name}): {NeuralNetworkCV.best_params_}")
 
-    y_train_pred = NeuralNetworkCV.predict(X_train)
+    NeuralNetworkCV.predict(X_train)
     y_test_pred = NeuralNetworkCV.predict(X_test)
 
     train_score = NeuralNetworkCV.score(X_train, y_train)
@@ -159,56 +162,39 @@ def fit_and_evaluate(X_train, X_test, y_train, y_test, method_name):
     roc_auc_original,
 ) = fit_and_evaluate(X_train, X_test, y_train, y_test, "Original")
 
-# Evaluate on PCA data
+# Evaluate on KMeans data
 (
-    train_sizes_pca,
-    train_scores_mean_pca,
-    train_scores_std_pca,
-    test_scores_mean_pca,
-    test_scores_std_pca,
-    best_nn_pca,
-    train_score_pca,
-    test_score_pca,
-    training_time_pca,
-    precision_pca,
-    recall_pca,
-    f1_pca,
-    roc_auc_pca,
-) = fit_and_evaluate(X_train_pca, X_test_pca, y_train, y_test, "PCA")
+    train_sizes_kmeans,
+    train_scores_mean_kmeans,
+    train_scores_std_kmeans,
+    test_scores_mean_kmeans,
+    test_scores_std_kmeans,
+    best_nn_kmeans,
+    train_score_kmeans,
+    test_score_kmeans,
+    training_time_kmeans,
+    precision_kmeans,
+    recall_kmeans,
+    f1_kmeans,
+    roc_auc_kmeans,
+) = fit_and_evaluate(X_train_kmeans, X_test_kmeans, y_train, y_test, "KMeans")
 
-# Evaluate on ICA data
+# Evaluate on EM data
 (
-    train_sizes_ica,
-    train_scores_mean_ica,
-    train_scores_std_ica,
-    test_scores_mean_ica,
-    test_scores_std_ica,
-    best_nn_ica,
-    train_score_ica,
-    test_score_ica,
-    training_time_ica,
-    precision_ica,
-    recall_ica,
-    f1_ica,
-    roc_auc_ica,
-) = fit_and_evaluate(X_train_ica, X_test_ica, y_train, y_test, "ICA")
-
-# Evaluate on RP data
-(
-    train_sizes_rp,
-    train_scores_mean_rp,
-    train_scores_std_rp,
-    test_scores_mean_rp,
-    test_scores_std_rp,
-    best_nn_rp,
-    train_score_rp,
-    test_score_rp,
-    training_time_rp,
-    precision_rp,
-    recall_rp,
-    f1_rp,
-    roc_auc_rp,
-) = fit_and_evaluate(X_train_rp, X_test_rp, y_train, y_test, "RP")
+    train_sizes_em,
+    train_scores_mean_em,
+    train_scores_std_em,
+    test_scores_mean_em,
+    test_scores_std_em,
+    best_nn_em,
+    train_score_em,
+    test_score_em,
+    training_time_em,
+    precision_em,
+    recall_em,
+    f1_em,
+    roc_auc_em,
+) = fit_and_evaluate(X_train_em, X_test_em, y_train, y_test, "EM")
 
 # %%
 # Combine learning curve plots
@@ -244,94 +230,64 @@ plt.plot(
     label="Cross-validation score (Original)",
 )
 
-# PCA data learning curve
+# KMeans data learning curve
 plt.fill_between(
-    train_sizes_pca,
-    train_scores_mean_pca - train_scores_std_pca,
-    train_scores_mean_pca + train_scores_std_pca,
+    train_sizes_kmeans,
+    train_scores_mean_kmeans - train_scores_std_kmeans,
+    train_scores_mean_kmeans + train_scores_std_kmeans,
     alpha=0.1,
     color="green",
 )
 plt.fill_between(
-    train_sizes_pca,
-    test_scores_mean_pca - test_scores_std_pca,
-    test_scores_mean_pca + test_scores_std_pca,
+    train_sizes_kmeans,
+    test_scores_mean_kmeans - test_scores_std_kmeans,
+    test_scores_mean_kmeans + test_scores_std_kmeans,
     alpha=0.1,
     color="orange",
 )
 plt.plot(
-    train_sizes_pca,
-    train_scores_mean_pca,
+    train_sizes_kmeans,
+    train_scores_mean_kmeans,
     "o-",
     color="green",
-    label="Training score (PCA)",
+    label="Training score (KMeans)",
 )
 plt.plot(
-    train_sizes_pca,
-    test_scores_mean_pca,
+    train_sizes_kmeans,
+    test_scores_mean_kmeans,
     "o-",
     color="orange",
-    label="Cross-validation score (PCA)",
+    label="Cross-validation score (KMeans)",
 )
 
-# ICA data learning curve
+# EM data learning curve
 plt.fill_between(
-    train_sizes_ica,
-    train_scores_mean_ica - train_scores_std_ica,
-    train_scores_mean_ica + train_scores_std_ica,
+    train_sizes_em,
+    train_scores_mean_em - train_scores_std_em,
+    train_scores_mean_em + train_scores_std_em,
     alpha=0.1,
     color="purple",
 )
 plt.fill_between(
-    train_sizes_ica,
-    test_scores_mean_ica - test_scores_std_ica,
-    test_scores_mean_ica + test_scores_std_ica,
+    train_sizes_em,
+    test_scores_mean_em - test_scores_std_em,
+    test_scores_mean_em + test_scores_std_em,
     alpha=0.1,
     color="brown",
 )
 plt.plot(
-    train_sizes_ica,
-    train_scores_mean_ica,
+    train_sizes_em,
+    train_scores_mean_em,
     "o-",
     color="purple",
-    label="Training score (ICA)",
+    label="Training score (EM)",
 )
 plt.plot(
-    train_sizes_ica,
-    test_scores_mean_ica,
+    train_sizes_em,
+    test_scores_mean_em,
     "o-",
     color="brown",
-    label="Cross-validation score (ICA)",
-)
-
-# RP data learning curve
-plt.fill_between(
-    train_sizes_rp,
-    train_scores_mean_rp - train_scores_std_rp,
-    train_scores_mean_rp + train_scores_std_rp,
-    alpha=0.1,
-    color="cyan",
-)
-plt.fill_between(
-    train_sizes_rp,
-    test_scores_mean_rp - test_scores_std_rp,
-    test_scores_mean_rp + test_scores_std_rp,
-    alpha=0.1,
-    color="magenta",
-)
-plt.plot(
-    train_sizes_rp,
-    train_scores_mean_rp,
-    "o-",
-    color="cyan",
-    label="Training score (RP)",
-)
-plt.plot(
-    train_sizes_rp,
-    test_scores_mean_rp,
-    "o-",
-    color="magenta",
-    label="Cross-validation score (RP)",
+    label="Cross-validation score (EM)",
 )
 
 plt.title("Combined Learning Curves")
@@ -344,48 +300,41 @@ plt.show()
 # %%
 # Compile results into a DataFrame
 results = {
-    "Method": ["Original", "PCA", "ICA", "RP"],
+    "Method": ["Original", "KMeans", "EM"],
     "Train Accuracy": [
         train_score_original,
-        train_score_pca,
-        train_score_ica,
-        train_score_rp,
+        train_score_kmeans,
+        train_score_em,
     ],
     "Test Accuracy": [
         test_score_original,
-        test_score_pca,
-        test_score_ica,
-        test_score_rp,
+        test_score_kmeans,
+        test_score_em,
     ],
     "Training Time (s)": [
         training_time_original,
-        training_time_pca,
-        training_time_ica,
-        training_time_rp,
+        training_time_kmeans,
+        training_time_em,
     ],
     "Precision": [
         precision_original,
-        precision_pca,
-        precision_ica,
-        precision_rp,
+        precision_kmeans,
+        precision_em,
     ],
     "Recall": [
         recall_original,
-        recall_pca,
-        recall_ica,
-        recall_rp,
+        recall_kmeans,
+        recall_em,
     ],
     "F1 Score": [
         f1_original,
-        f1_pca,
-        f1_ica,
-        f1_rp,
+        f1_kmeans,
+        f1_em,
     ],
     "ROC AUC Score": [
         roc_auc_original,
-        roc_auc_pca,
-        roc_auc_ica,
-        roc_auc_rp,
+        roc_auc_kmeans,
+        roc_auc_em,
     ],
 }
 
